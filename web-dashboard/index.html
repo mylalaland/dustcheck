@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DustCheck - 실내 공기질 모니터링</title>
+    <meta name="description" content="실내 미세먼지(PM1.0, PM2.5, PM4.0, PM10) 실시간 대시보드. 4가지 입자 크기별 공기질 등급과 추이 그래프를 한눈에 확인하세요.">
+    <meta name="theme-color" content="#f5f7fb">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌬️</text></svg>">
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="css/style.css">
+
+    <!-- Firebase (compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <!-- date adapter for time scale -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+</head>
+<body>
+    <div class="container">
+
+        <!-- Header -->
+        <header class="header" id="header">
+            <div class="header__top">
+                <div class="header__brand">
+                    <span class="header__icon">🌬️</span>
+                    <div>
+                        <h1 class="header__title">DustCheck</h1>
+                        <p class="header__subtitle">실내 공기질 모니터링</p>
+                    </div>
+                </div>
+                <div class="header__actions">
+                    <button class="icon-btn" id="btn-settings" title="설정" aria-label="설정">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="header__status">
+                <span class="status-dot" id="status-dot"></span>
+                <span id="status-text">연결 중...</span>
+            </div>
+        </header>
+
+
+
+        <!-- Main Grade Card -->
+        <section class="grade-card" id="grade-card">
+            <span class="grade-card__emoji" id="grade-emoji">😊</span>
+            <div class="grade-card__label" id="grade-label">좋음</div>
+            <div class="grade-card__desc" id="grade-desc">데이터를 불러오는 중...</div>
+        </section>
+
+        <!-- PM Value Cards (Collapsible) -->
+        <section class="collapsible-section" id="section-pm-cards">
+            <button class="collapsible-header" data-target="pm-cards-body" aria-expanded="true">
+                <span class="collapsible-header__title">📊 입자 크기별 측정값</span>
+                <svg class="collapsible-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="collapsible-body open" id="pm-cards-body">
+                <div class="pm-grid">
+                    <div class="pm-card" id="pm1-card">
+                        <div class="pm-card__type">PM 1.0</div>
+                        <div class="pm-card__value" id="pm1-value">--</div>
+                        <div class="pm-card__unit">μg/m³</div>
+                        <span class="pm-card__grade" id="pm1-grade">--</span>
+                    </div>
+                    <div class="pm-card" id="pm25-card">
+                        <div class="pm-card__type">PM 2.5</div>
+                        <div class="pm-card__value" id="pm25-value">--</div>
+                        <div class="pm-card__unit">μg/m³</div>
+                        <span class="pm-card__grade" id="pm25-grade">--</span>
+                    </div>
+                    <div class="pm-card" id="pm4-card">
+                        <div class="pm-card__type">PM 4.0</div>
+                        <div class="pm-card__value" id="pm4-value">--</div>
+                        <div class="pm-card__unit">μg/m³</div>
+                        <span class="pm-card__grade" id="pm4-grade">--</span>
+                    </div>
+                    <div class="pm-card" id="pm10-card">
+                        <div class="pm-card__type">PM 10</div>
+                        <div class="pm-card__value" id="pm10-value">--</div>
+                        <div class="pm-card__unit">μg/m³</div>
+                        <span class="pm-card__grade" id="pm10-grade">--</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Air Quality Gauge (Collapsible) -->
+        <section class="collapsible-section gauge-section" id="gauge-section">
+            <button class="collapsible-header" data-target="gauge-body" aria-expanded="true">
+                <span class="collapsible-header__title">📏 공기질 기준치</span>
+                <svg class="collapsible-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="collapsible-body open" id="gauge-body">
+            <div class="gauge-grid">
+                <!-- PM1.0 Gauge -->
+                <div class="gauge-card">
+                    <div class="gauge-card__header">
+                        <span class="gauge-card__type" style="color:#f472b6">PM1.0</span>
+                        <span class="gauge-card__value" id="gauge-pm1-val">-- μg/m³</span>
+                    </div>
+                    <div class="gauge-bar" id="gauge-pm1">
+                        <div class="gauge-bar__segment" data-level="좋음" style="flex:1;background:var(--clr-good)"><span>좋음</span><small>0~10</small></div>
+                        <div class="gauge-bar__segment" data-level="보통" style="flex:1;background:var(--clr-normal)"><span>보통</span><small>11~25</small></div>
+                        <div class="gauge-bar__segment" data-level="나쁨" style="flex:1;background:var(--clr-bad)"><span>나쁨</span><small>26~50</small></div>
+                        <div class="gauge-bar__segment" data-level="매우나쁨" style="flex:1;background:var(--clr-vbad)"><span>매우나쁨</span><small>51+</small></div>
+                        <div class="gauge-bar__marker" id="marker-pm1"></div>
+                    </div>
+                </div>
+                <!-- PM2.5 Gauge -->
+                <div class="gauge-card">
+                    <div class="gauge-card__header">
+                        <span class="gauge-card__type" style="color:#22c55e">PM2.5</span>
+                        <span class="gauge-card__value" id="gauge-pm25-val">-- μg/m³</span>
+                    </div>
+                    <div class="gauge-bar" id="gauge-pm25">
+                        <div class="gauge-bar__segment" data-level="좋음" style="flex:1;background:var(--clr-good)"><span>좋음</span><small>0~15</small></div>
+                        <div class="gauge-bar__segment" data-level="보통" style="flex:1;background:var(--clr-normal)"><span>보통</span><small>16~35</small></div>
+                        <div class="gauge-bar__segment" data-level="나쁨" style="flex:1;background:var(--clr-bad)"><span>나쁨</span><small>36~75</small></div>
+                        <div class="gauge-bar__segment" data-level="매우나쁨" style="flex:1;background:var(--clr-vbad)"><span>매우나쁨</span><small>76+</small></div>
+                        <div class="gauge-bar__marker" id="marker-pm25"></div>
+                    </div>
+                </div>
+                <!-- PM4.0 Gauge -->
+                <div class="gauge-card">
+                    <div class="gauge-card__header">
+                        <span class="gauge-card__type" style="color:#f59e0b">PM4.0</span>
+                        <span class="gauge-card__value" id="gauge-pm4-val">-- μg/m³</span>
+                    </div>
+                    <div class="gauge-bar" id="gauge-pm4">
+                        <div class="gauge-bar__segment" data-level="좋음" style="flex:1;background:var(--clr-good)"><span>좋음</span><small>0~20</small></div>
+                        <div class="gauge-bar__segment" data-level="보통" style="flex:1;background:var(--clr-normal)"><span>보통</span><small>21~50</small></div>
+                        <div class="gauge-bar__segment" data-level="나쁨" style="flex:1;background:var(--clr-bad)"><span>나쁨</span><small>51~100</small></div>
+                        <div class="gauge-bar__segment" data-level="매우나쁨" style="flex:1;background:var(--clr-vbad)"><span>매우나쁨</span><small>101+</small></div>
+                        <div class="gauge-bar__marker" id="marker-pm4"></div>
+                    </div>
+                </div>
+                <!-- PM10 Gauge -->
+                <div class="gauge-card">
+                    <div class="gauge-card__header">
+                        <span class="gauge-card__type" style="color:#6366f1">PM10</span>
+                        <span class="gauge-card__value" id="gauge-pm10-val">-- μg/m³</span>
+                    </div>
+                    <div class="gauge-bar" id="gauge-pm10">
+                        <div class="gauge-bar__segment" data-level="좋음" style="flex:1;background:var(--clr-good)"><span>좋음</span><small>0~30</small></div>
+                        <div class="gauge-bar__segment" data-level="보통" style="flex:1;background:var(--clr-normal)"><span>보통</span><small>31~80</small></div>
+                        <div class="gauge-bar__segment" data-level="나쁨" style="flex:1;background:var(--clr-bad)"><span>나쁨</span><small>81~150</small></div>
+                        <div class="gauge-bar__segment" data-level="매우나쁨" style="flex:1;background:var(--clr-vbad)"><span>매우나쁨</span><small>151+</small></div>
+                        <div class="gauge-bar__marker" id="marker-pm10"></div>
+                    </div>
+                </div>
+            </div>
+            </div>
+        </section>
+
+        <!-- Chart / Table Section -->
+        <section class="chart-section">
+            <div class="chart-header">
+                <h2 class="section-title">📈 미세먼지 추이</h2>
+                <div class="chart-header__controls">
+                    <div class="chart-tabs">
+                        <button class="chart-tab" data-period="realtime">실시간</button>
+                        <button class="chart-tab active" data-period="24h">24시간</button>
+                        <button class="chart-tab" data-period="7d">7일</button>
+                        <button class="chart-tab" data-period="30d">30일</button>
+                        <button class="chart-tab" data-period="1y">1년</button>
+                    </div>
+                    <div style="display:flex;gap:4px">
+                        <button class="icon-btn" id="btn-add-memo" title="메모 추가" aria-label="메모 추가">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                        </button>
+                        <button class="icon-btn view-toggle" id="btn-view-toggle" title="테이블 보기" aria-label="테이블/차트 전환">
+                            <svg class="icon-table" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+                            <svg class="icon-chart" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <!-- Dataset Filter Toggles -->
+            <div class="dataset-filters" id="dataset-filters">
+                <button class="dataset-toggle active" data-key="pm1" style="--toggle-color:#f472b6"><span class="toggle-dot"></span>PM1.0</button>
+                <button class="dataset-toggle active" data-key="pm25" style="--toggle-color:#22c55e"><span class="toggle-dot"></span>PM2.5</button>
+                <button class="dataset-toggle active" data-key="pm4" style="--toggle-color:#f59e0b"><span class="toggle-dot"></span>PM4.0</button>
+                <button class="dataset-toggle active" data-key="pm10" style="--toggle-color:#6366f1"><span class="toggle-dot"></span>PM10</button>
+            </div>
+            <div class="chart-container" id="chart-container">
+                <canvas id="dustChart"></canvas>
+            </div>
+            <div class="table-container" id="table-container" style="display:none">
+                <div class="table-scroll">
+                    <table class="data-table" id="data-table">
+                        <thead>
+                            <tr>
+                                <th>시간</th>
+                                <th>PM1.0</th>
+                                <th>PM2.5</th>
+                                <th>PM4.0</th>
+                                <th>PM10</th>
+                                <th>등급(PM2.5)</th>
+                                <th>관리</th>
+                            </tr>
+                        </thead>
+                        <tbody id="data-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="chart-loading" id="chart-loading" style="display:none">
+                <div class="spinner"></div>
+                <span>데이터 로딩 중...</span>
+            </div>
+        </section>
+
+        <!-- Stats Info -->
+        <section class="stats-section">
+            <div class="stats-header">
+                <h2 class="section-title">📊 오늘의 통계</h2>
+                <div class="stats-tabs">
+                    <button class="stats-tab" data-stat="pm1">PM1.0</button>
+                    <button class="stats-tab active" data-stat="pm25">PM2.5</button>
+                    <button class="stats-tab" data-stat="pm4">PM4.0</button>
+                    <button class="stats-tab" data-stat="pm10">PM10</button>
+                </div>
+            </div>
+            <div class="info-row">
+                <div class="info-card">
+                    <div class="info-card__icon">📈</div>
+                    <div class="info-card__label">최고</div>
+                    <div class="info-card__value" id="stat-max">--</div>
+                    <div class="info-card__unit">μg/m³</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-card__icon">📉</div>
+                    <div class="info-card__label">최저</div>
+                    <div class="info-card__value" id="stat-min">--</div>
+                    <div class="info-card__unit">μg/m³</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-card__icon">📋</div>
+                    <div class="info-card__label">평균</div>
+                    <div class="info-card__value" id="stat-avg">--</div>
+                    <div class="info-card__unit">μg/m³</div>
+                </div>
+            </div>
+        </section>
+        <!-- Memo List (Collapsible) -->
+        <section class="collapsible-section" id="memo-section">
+            <button class="collapsible-header" data-target="memo-list-body" aria-expanded="true">
+                <span class="collapsible-header__title">📝 메모 목록</span>
+                <svg class="collapsible-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="collapsible-body open" id="memo-list-body">
+                <p style="text-align:center;color:var(--text-dim);padding:16px;font-size:0.85rem">메모가 없습니다.</p>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>DustCheck · 실내 공기질 모니터링</p>
+            <p style="margin-top: 4px;">Powered by dust.slowi.com</p>
+        </footer>
+
+    </div>
+
+    <!-- Memo Popover (shown when clicking a chart memo marker) -->
+    <div class="memo-popover" id="memo-popover" style="display:none">
+        <div class="memo-popover__time" id="memo-popover-time"></div>
+        <div class="memo-popover__text" id="memo-popover-text"></div>
+        <button class="memo-popover__close" id="memo-popover-close">&times;</button>
+    </div>
+
+    <!-- Memo Modal -->
+    <div class="modal-overlay" id="memo-modal" style="display:none">
+        <div class="modal-card">
+            <div class="modal-card__header">
+                <h3>📝 메모 추가</h3>
+                <button class="modal-card__close" id="memo-modal-close">&times;</button>
+            </div>
+            <div class="modal-card__body">
+                <div class="form-group">
+                    <label for="memo-time">시간</label>
+                    <input type="datetime-local" id="memo-time" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label for="memo-text">메모 내용</label>
+                    <textarea id="memo-text" class="form-input" rows="3" placeholder="예: 창문 열었음, 청소 시작..."></textarea>
+                </div>
+                <div class="form-group" id="memo-pin-group">
+                    <label for="memo-pin">PIN 번호</label>
+                    <input type="password" id="memo-pin" class="form-input" maxlength="8" placeholder="인증 PIN 입력">
+                </div>
+                <div class="form-error" id="memo-error" style="display:none"></div>
+            </div>
+            <div class="modal-card__footer">
+                <button class="btn-secondary" id="memo-cancel">취소</button>
+                <button class="btn-primary" id="memo-save">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settings-modal" style="display:none">
+        <div class="modal-card">
+            <div class="modal-card__header">
+                <h3>⚙️ 설정</h3>
+                <button class="modal-card__close" id="settings-modal-close">&times;</button>
+            </div>
+            <div class="modal-card__body" style="padding:0;">
+                <div class="settings-tabs">
+                    <button class="settings-tab active" data-tab="pane-notif">🔔 알림</button>
+                    <button class="settings-tab" data-tab="pane-theme">🎨 디스플레이</button>
+                    <button class="settings-tab" data-tab="pane-data">💾 데이터 관리</button>
+                </div>
+                
+                <div class="settings-content" style="padding:16px;">
+                    <!-- Notification Tab -->
+                    <div class="settings-pane active" id="pane-notif">
+                        <div class="notif-group">
+                            <h4 class="notif-group__title">PM2.5 등급 변경 알림</h4>
+                            <label class="notif-check"><input type="checkbox" data-key="pm25_good_normal" checked><span class="notif-check__label">좋음 → 보통 <small>(15 μg/m³ 초과)</small></span></label>
+                            <label class="notif-check"><input type="checkbox" data-key="pm25_normal_bad" checked><span class="notif-check__label">보통 → 나쁨 <small>(35 μg/m³ 초과)</small></span></label>
+                            <label class="notif-check"><input type="checkbox" data-key="pm25_bad_vbad" checked><span class="notif-check__label">나쁨 → 매우나쁨 <small>(75 μg/m³ 초과)</small></span></label>
+                            <label class="notif-check"><input type="checkbox" data-key="pm25_bad_normal"><span class="notif-check__label improve">나쁨 → 보통 <small>(35 μg/m³ 이하)</small></span></label>
+                            <label class="notif-check"><input type="checkbox" data-key="pm25_normal_good"><span class="notif-check__label improve">보통 → 좋음 <small>(15 μg/m³ 이하)</small></span></label>
+                        </div>
+                        <div class="notif-group">
+                            <h4 class="notif-group__title">PM10 등급 변경 알림</h4>
+                            <label class="notif-check"><input type="checkbox" data-key="pm10_good_normal" checked><span class="notif-check__label">좋음 → 보통 <small>(30 μg/m³ 초과)</small></span></label>
+                            <label class="notif-check"><input type="checkbox" data-key="pm10_normal_bad" checked><span class="notif-check__label">보통 → 나쁨 <small>(80 μg/m³ 초과)</small></span></label>
+                            <label class="notif-check"><input type="checkbox" data-key="pm10_bad_vbad" checked><span class="notif-check__label">나쁨 → 매우나쁨 <small>(150 μg/m³ 초과)</small></span></label>
+                            <label class="notif-check"><input type="checkbox" data-key="pm10_bad_normal"><span class="notif-check__label improve">나쁨 → 보통 <small>(80 μg/m³ 이하)</small></span></label>
+                            <label class="notif-check"><input type="checkbox" data-key="pm10_normal_good"><span class="notif-check__label improve">보통 → 좋음 <small>(30 μg/m³ 이하)</small></span></label>
+                        </div>
+                        <div style="margin-top:16px;">
+                            <button class="btn btn--outline" id="btn-notif-test" style="width:100%;">테스트 알림 보내기</button>
+                        </div>
+                    </div>
+
+                    <!-- Theme Tab -->
+                    <div class="settings-pane" id="pane-theme">
+                        <div class="theme-toggle-wrap">
+                            <p style="margin-bottom:12px; font-size:0.9rem; color:var(--text-primary);">다크 모드를 사용하시겠습니까?</p>
+                            <button class="btn-primary" id="btn-settings-theme" style="width:100%;">다크 모드로 전환</button>
+                        </div>
+                    </div>
+
+                    <!-- Data Management Tab -->
+                    <div class="settings-pane" id="pane-data">
+                        <div class="form-group" id="data-pin-group">
+                            <label for="data-pin">관리자 PIN 번호</label>
+                            <input type="password" id="data-pin" class="form-input" maxlength="8" placeholder="인증 PIN 입력 (데이터 관리 전용)">
+                        </div>
+                        
+                        <h4 style="margin-top:16px; margin-bottom:8px; font-size:0.9rem; color:var(--text-primary);">구간 데이터 삭제</h4>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <div class="form-group" style="flex:1; margin-bottom:0;">
+                                <input type="datetime-local" id="data-start-time" class="form-input" title="시작 시간">
+                            </div>
+                            <span>~</span>
+                            <div class="form-group" style="flex:1; margin-bottom:0;">
+                                <input type="datetime-local" id="data-end-time" class="form-input" title="종료 시간">
+                            </div>
+                        </div>
+                        <button class="btn-secondary" id="btn-delete-range" style="width:100%; margin-top:8px; border-color:#ef4444; color:#ef4444;">선택 구간 삭제</button>
+
+                        <hr style="border:none; border-top:1px solid var(--border-card); margin:20px 0;">
+
+                        <h4 style="margin-bottom:8px; font-size:0.9rem; color:#ef4444;">전체 데이터 초기화</h4>
+                        <p style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:12px;">모든 측정 데이터를 영구적으로 삭제합니다. 복구할 수 없습니다.</p>
+                        <button class="btn-primary" id="btn-delete-all" style="width:100%; background:#ef4444;">전체 데이터 삭제</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JS -->
+    <script src="js/config.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

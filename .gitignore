@@ -1,0 +1,32 @@
+# Virtual environments
+.venv/
+dust_env/
+venv/
+ENV/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Firebase local files
+web-dashboard/.firebase/
+.firebase/
+firebase-debug.log
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE configurations
+.vscode/
+.idea/
+
+# Secrets and keys
+serviceAccountKey.json
+*.json.key
+secrets.json
+credentials.json
+

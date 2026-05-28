@@ -1,0 +1,1515 @@
+<!--
+  ============================================================
+  DustCheck Blogger Page - 실내 공기질 모니터링 결과 페이지
+  ============================================================
+  사용법:
+  1. Blogger.com → 페이지 → 새 페이지
+  2. HTML 보기 모드로 전환
+  3. 이 파일의 내용을 전체 붙여넣기
+  4. 게시
+  ============================================================
+-->
+
+<!-- Google Fonts -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap">
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
+<style>
+/* ─── DustCheck Scoped Styles ─── */
+#dustcheck-app {
+    --bg-body: #f5f7fb;
+    --bg-card: #ffffff;
+    --bg-card-hover: #f8f9fc;
+    --bg-input: #f0f2f7;
+    --border-card: rgba(0, 0, 0, 0.06);
+    --border-subtle: rgba(0, 0, 0, 0.04);
+    --text-primary: #1a1d2e;
+    --text-secondary: #6b7084;
+    --text-dim: #9ca0b4;
+    --clr-good: #22c55e;
+    --clr-normal: #f59e0b;
+    --clr-bad: #f97316;
+    --clr-vbad: #ef4444;
+    --accent-blue: #6366f1;
+    --accent-teal: #14b8a6;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.08);
+    --radius-sm: 12px;
+    --radius-md: 16px;
+    --radius-lg: 20px;
+    --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    --chart-grid: rgba(0,0,0,0.05);
+    --chart-tick: #9ca0b4;
+
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 20px 16px 32px;
+    color: var(--text-primary);
+    line-height: 1.5;
+}
+
+/* Dark mode */
+#dustcheck-app.dark-mode {
+    --bg-body: #0f1117;
+    --bg-card: #1a1d2e;
+    --bg-card-hover: #22263a;
+    --bg-input: #252940;
+    --border-card: rgba(255, 255, 255, 0.07);
+    --border-subtle: rgba(255, 255, 255, 0.04);
+    --text-primary: #f0f0f5;
+    --text-secondary: #8b8faa;
+    --text-dim: #555570;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.5);
+    --chart-grid: rgba(255,255,255,0.05);
+    --chart-tick: #555570;
+}
+
+#dustcheck-app * {
+    box-sizing: border-box;
+}
+
+/* ─── Section Title ─── */
+#dustcheck-app .dc-section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+/* ─── Header ─── */
+#dustcheck-app .dc-header {
+    margin-bottom: 24px;
+    animation: dcFadeIn 0.6s ease-out;
+}
+
+#dustcheck-app .dc-header__top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#dustcheck-app .dc-header__brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#dustcheck-app .dc-header__icon {
+    font-size: 2rem;
+}
+
+#dustcheck-app .dc-header__title {
+    font-size: 1.6rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -0.5px;
+    line-height: 1.2;
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
+#dustcheck-app .dc-header__subtitle {
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-weight: 400;
+    margin-top: 1px;
+}
+
+#dustcheck-app .dc-header__actions {
+    display: flex;
+    gap: 6px;
+}
+
+#dustcheck-app .dc-header__status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    padding: 5px 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 100px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+}
+
+/* ─── Icon Button ─── */
+#dustcheck-app .dc-icon-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    border: 1px solid var(--border-card);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition);
+    box-shadow: var(--shadow-sm);
+    padding: 0;
+}
+
+#dustcheck-app .dc-icon-btn:hover {
+    background: var(--bg-card-hover);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-md);
+}
+
+/* ─── Status Dot ─── */
+#dustcheck-app .dc-status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--clr-good);
+    animation: dcPulse 2s infinite;
+    flex-shrink: 0;
+    display: inline-block;
+}
+
+#dustcheck-app .dc-status-dot.offline {
+    background: var(--clr-vbad);
+    animation: none;
+}
+
+/* ─── Main Grade Card ─── */
+#dustcheck-app .dc-grade-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius-lg);
+    padding: 28px 20px;
+    text-align: center;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow-md);
+    transition: var(--transition);
+    animation: dcFadeInUp 0.5s ease-out 0.1s both;
+}
+
+#dustcheck-app .dc-grade-card:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+}
+
+#dustcheck-app .dc-grade-card__emoji {
+    font-size: 3.2rem;
+    display: block;
+    margin-bottom: 6px;
+    animation: dcBounceIn 0.7s ease-out 0.4s both;
+}
+
+#dustcheck-app .dc-grade-card__label {
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+    transition: color 0.5s ease;
+}
+
+#dustcheck-app .dc-grade-card__desc {
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+}
+
+/* ─── Collapsible Sections ─── */
+#dustcheck-app .dc-collapsible-section {
+    margin-bottom: 20px;
+}
+
+#dustcheck-app .dc-collapsible-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 12px 16px;
+    margin-bottom: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    transition: var(--transition);
+    font-family: 'Inter', sans-serif;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+#dustcheck-app .dc-collapsible-header:hover {
+    background: var(--bg-card-hover);
+    box-shadow: var(--shadow-md);
+}
+
+#dustcheck-app .dc-collapsible-header__title {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+#dustcheck-app .dc-collapsible-chevron {
+    color: var(--text-dim);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    flex-shrink: 0;
+}
+
+#dustcheck-app .dc-collapsible-header[aria-expanded="false"] .dc-collapsible-chevron {
+    transform: rotate(-90deg);
+}
+
+#dustcheck-app .dc-collapsible-body {
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.3s ease,
+                margin 0.3s ease;
+    margin-top: 0;
+}
+
+#dustcheck-app .dc-collapsible-body.open {
+    max-height: 2000px;
+    opacity: 1;
+    margin-top: 14px;
+}
+
+/* ─── PM Cards Grid ─── */
+#dustcheck-app .dc-pm-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+#dustcheck-app .dc-pm-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius-md);
+    padding: 22px 16px;
+    text-align: center;
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+#dustcheck-app .dc-pm-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--accent-blue);
+    transition: var(--transition);
+}
+
+#dustcheck-app .dc-pm-card:nth-child(1) { animation: dcFadeInUp 0.5s ease-out 0.12s both; }
+#dustcheck-app .dc-pm-card:nth-child(2) { animation: dcFadeInUp 0.5s ease-out 0.18s both; }
+#dustcheck-app .dc-pm-card:nth-child(3) { animation: dcFadeInUp 0.5s ease-out 0.24s both; }
+#dustcheck-app .dc-pm-card:nth-child(4) { animation: dcFadeInUp 0.5s ease-out 0.30s both; }
+
+#dustcheck-app .dc-pm-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-3px);
+}
+
+#dustcheck-app .dc-pm-card__type {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+}
+
+#dustcheck-app .dc-pm-card__value {
+    font-size: 2.4rem;
+    font-weight: 800;
+    letter-spacing: -1px;
+    line-height: 1;
+    margin-bottom: 4px;
+    transition: color 0.5s ease;
+}
+
+#dustcheck-app .dc-pm-card__unit {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+}
+
+#dustcheck-app .dc-pm-card__grade {
+    display: inline-block;
+    margin-top: 10px;
+    padding: 3px 12px;
+    border-radius: 100px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    transition: var(--transition);
+}
+
+/* ─── Gauge Section ─── */
+#dustcheck-app .dc-gauge-grid {
+    display: grid;
+    gap: 14px;
+    margin-top: 14px;
+}
+
+#dustcheck-app .dc-gauge-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius-md);
+    padding: 18px 20px;
+    box-shadow: var(--shadow-sm);
+}
+
+#dustcheck-app .dc-gauge-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+}
+
+#dustcheck-app .dc-gauge-card__type {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+#dustcheck-app .dc-gauge-card__value {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--accent-blue);
+}
+
+#dustcheck-app .dc-gauge-bar {
+    position: relative;
+    display: flex;
+    height: 32px;
+    border-radius: 8px;
+    overflow: visible;
+    gap: 2px;
+}
+
+#dustcheck-app .dc-gauge-bar__segment {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    border-radius: 4px;
+    position: relative;
+    min-width: 0;
+}
+
+#dustcheck-app .dc-gauge-bar__segment span {
+    font-size: 0.65rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+#dustcheck-app .dc-gauge-bar__segment small {
+    font-size: 0.55rem;
+    opacity: 0.85;
+    white-space: nowrap;
+}
+
+#dustcheck-app .dc-gauge-bar__marker {
+    position: absolute;
+    top: -6px;
+    width: 14px;
+    height: 14px;
+    background: #fff;
+    border: 3px solid var(--accent-blue);
+    border-radius: 50%;
+    transition: left 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 2;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.18), 0 0 0 3px rgba(99, 102, 241, 0.15);
+    transform: translateX(-50%);
+}
+
+#dustcheck-app.dark-mode .dc-gauge-bar__marker {
+    background: var(--bg-card);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4), 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+#dustcheck-app .dc-gauge-bar__marker::after {
+    content: '';
+    position: absolute;
+    top: -10px; left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid var(--accent-blue);
+}
+
+/* ─── Dataset Filter Toggles ─── */
+#dustcheck-app .dc-dataset-filters {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+}
+
+#dustcheck-app .dc-dataset-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 14px;
+    border-radius: 100px;
+    border: 1.5px solid var(--border-card);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    transition: var(--transition);
+    user-select: none;
+}
+
+#dustcheck-app .dc-dataset-toggle:hover {
+    border-color: var(--toggle-color, var(--text-dim));
+    background: var(--bg-card-hover);
+}
+
+#dustcheck-app .dc-dataset-toggle.active {
+    border-color: var(--toggle-color);
+    background: color-mix(in srgb, var(--toggle-color) 10%, var(--bg-card));
+    color: var(--text-primary);
+}
+
+#dustcheck-app .dc-toggle-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    transition: var(--transition);
+    flex-shrink: 0;
+    display: inline-block;
+}
+
+#dustcheck-app .dc-dataset-toggle.active .dc-toggle-dot {
+    background: var(--toggle-color);
+    box-shadow: 0 0 6px var(--toggle-color);
+}
+
+/* ─── Chart Section ─── */
+#dustcheck-app .dc-chart-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow-md);
+    animation: dcFadeInUp 0.5s ease-out 0.35s both;
+}
+
+#dustcheck-app .dc-chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+#dustcheck-app .dc-chart-header__controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#dustcheck-app .dc-chart-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--bg-input);
+    border-radius: 10px;
+    padding: 3px;
+}
+
+#dustcheck-app .dc-chart-tab {
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: none;
+    background: none;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    font-family: 'Inter', sans-serif;
+    white-space: nowrap;
+}
+
+#dustcheck-app .dc-chart-tab:hover {
+    color: var(--text-primary);
+}
+
+#dustcheck-app .dc-chart-tab.active {
+    background: var(--accent-blue);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+}
+
+#dustcheck-app .dc-chart-container {
+    position: relative;
+    height: 280px;
+    width: 100%;
+}
+
+#dustcheck-app .dc-chart-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    height: 280px;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+#dustcheck-app .dc-spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid var(--border-card);
+    border-top-color: var(--accent-blue);
+    border-radius: 50%;
+    animation: dcSpin 0.7s linear infinite;
+    display: inline-block;
+}
+
+/* ─── Stats Section ─── */
+#dustcheck-app .dc-stats-section {
+    margin-bottom: 20px;
+    animation: dcFadeInUp 0.5s ease-out 0.4s both;
+}
+
+#dustcheck-app .dc-stats-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+}
+
+#dustcheck-app .dc-stats-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--bg-input);
+    border-radius: 8px;
+    padding: 2px;
+}
+
+#dustcheck-app .dc-stats-tab {
+    padding: 5px 14px;
+    border-radius: 6px;
+    border: none;
+    background: none;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    font-family: 'Inter', sans-serif;
+}
+
+#dustcheck-app .dc-stats-tab.active {
+    background: var(--accent-blue);
+    color: #fff;
+}
+
+#dustcheck-app .dc-info-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+#dustcheck-app .dc-info-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius-md);
+    padding: 18px 14px;
+    text-align: center;
+    transition: var(--transition);
+    box-shadow: var(--shadow-sm);
+}
+
+#dustcheck-app .dc-info-card:hover {
+    box-shadow: var(--shadow-md);
+}
+
+#dustcheck-app .dc-info-card__icon {
+    font-size: 1.3rem;
+    margin-bottom: 4px;
+}
+
+#dustcheck-app .dc-info-card__label {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+    margin-bottom: 6px;
+}
+
+#dustcheck-app .dc-info-card__value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+#dustcheck-app .dc-info-card__unit {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    margin-top: 2px;
+}
+
+/* ─── Footer ─── */
+#dustcheck-app .dc-footer {
+    text-align: center;
+    padding: 20px 0 8px;
+    color: var(--text-dim);
+    font-size: 0.72rem;
+}
+
+/* ─── Animations ─── */
+@keyframes dcFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+@keyframes dcFadeInUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes dcBounceIn {
+    0%   { opacity: 0; transform: scale(0.3); }
+    50%  { opacity: 1; transform: scale(1.05); }
+    70%  { transform: scale(0.95); }
+    100% { transform: scale(1); }
+}
+@keyframes dcPulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.4; }
+}
+@keyframes dcSpin {
+    to { transform: rotate(360deg); }
+}
+@keyframes dcDataPulse {
+    0%   { box-shadow: var(--shadow-sm); }
+    50%  { box-shadow: var(--shadow-md), 0 0 0 4px rgba(99, 102, 241, 0.1); }
+    100% { box-shadow: var(--shadow-sm); }
+}
+#dustcheck-app .dc-data-pulse {
+    animation: dcDataPulse 0.8s ease-out;
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 768px) {
+    #dustcheck-app { padding: 14px 12px 28px; }
+    #dustcheck-app .dc-header__title { font-size: 1.3rem; }
+    #dustcheck-app .dc-pm-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    #dustcheck-app .dc-pm-card { padding: 18px 12px; }
+    #dustcheck-app .dc-pm-card__value { font-size: 2rem; }
+    #dustcheck-app .dc-info-row { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    #dustcheck-app .dc-chart-container { height: 220px; }
+    #dustcheck-app .dc-chart-header { flex-direction: column; align-items: flex-start; }
+    #dustcheck-app .dc-grade-card { padding: 22px 16px; }
+    #dustcheck-app .dc-grade-card__emoji { font-size: 2.6rem; }
+    #dustcheck-app .dc-grade-card__label { font-size: 1.3rem; }
+    #dustcheck-app .dc-gauge-bar__segment span { font-size: 0.58rem; }
+    #dustcheck-app .dc-gauge-bar__segment small { font-size: 0.5rem; }
+    #dustcheck-app .dc-dataset-filters { gap: 4px; }
+    #dustcheck-app .dc-dataset-toggle { padding: 4px 10px; font-size: 0.7rem; }
+}
+@media (max-width: 480px) {
+    #dustcheck-app .dc-pm-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    #dustcheck-app .dc-pm-card__value { font-size: 1.7rem; }
+    #dustcheck-app .dc-chart-container { height: 180px; }
+    #dustcheck-app .dc-info-card { padding: 14px 8px; }
+    #dustcheck-app .dc-info-card__value { font-size: 1.2rem; }
+    #dustcheck-app .dc-chart-tabs { gap: 2px; }
+    #dustcheck-app .dc-chart-tab { padding: 5px 8px; font-size: 0.72rem; }
+    #dustcheck-app .dc-gauge-bar { height: 28px; }
+    #dustcheck-app .dc-dataset-toggle { padding: 3px 8px; font-size: 0.68rem; gap: 4px; }
+    #dustcheck-app .dc-toggle-dot { width: 6px; height: 6px; }
+}
+</style>
+
+<!-- ========== DustCheck App Container ========== -->
+<div id="dustcheck-app">
+
+    <!-- Header -->
+    <header class="dc-header" id="dc-header">
+        <div class="dc-header__top">
+            <div class="dc-header__brand">
+                <span class="dc-header__icon">🌬️</span>
+                <div>
+                    <h2 class="dc-header__title">DustCheck</h2>
+                    <p class="dc-header__subtitle">실내 공기질 모니터링</p>
+                </div>
+            </div>
+            <div class="dc-header__actions">
+                <button class="dc-icon-btn" id="dc-btn-theme" title="다크/라이트 모드 전환" aria-label="테마 전환">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                </button>
+            </div>
+        </div>
+        <div class="dc-header__status" id="dc-status-area" title="클릭하여 시간 표시 전환">
+            <span class="dc-status-dot" id="dc-status-dot"></span>
+            <span id="dc-status-text">연결 중...</span>
+        </div>
+    </header>
+
+    <!-- Main Grade Card -->
+    <section class="dc-grade-card" id="dc-grade-card">
+        <span class="dc-grade-card__emoji" id="dc-grade-emoji">😊</span>
+        <div class="dc-grade-card__label" id="dc-grade-label">좋음</div>
+        <div class="dc-grade-card__desc" id="dc-grade-desc">데이터를 불러오는 중...</div>
+    </section>
+
+    <!-- PM Value Cards -->
+    <section class="dc-collapsible-section">
+        <button class="dc-collapsible-header" data-target="dc-pm-cards-body" aria-expanded="true">
+            <span class="dc-collapsible-header__title">📊 입자 크기별 측정값</span>
+            <svg class="dc-collapsible-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="dc-collapsible-body open" id="dc-pm-cards-body">
+            <div class="dc-pm-grid">
+                <div class="dc-pm-card" id="dc-pm1-card">
+                    <div class="dc-pm-card__type">PM 1.0</div>
+                    <div class="dc-pm-card__value" id="dc-pm1-value">--</div>
+                    <div class="dc-pm-card__unit">μg/m³</div>
+                    <span class="dc-pm-card__grade" id="dc-pm1-grade">--</span>
+                </div>
+                <div class="dc-pm-card" id="dc-pm25-card">
+                    <div class="dc-pm-card__type">PM 2.5</div>
+                    <div class="dc-pm-card__value" id="dc-pm25-value">--</div>
+                    <div class="dc-pm-card__unit">μg/m³</div>
+                    <span class="dc-pm-card__grade" id="dc-pm25-grade">--</span>
+                </div>
+                <div class="dc-pm-card" id="dc-pm4-card">
+                    <div class="dc-pm-card__type">PM 4.0</div>
+                    <div class="dc-pm-card__value" id="dc-pm4-value">--</div>
+                    <div class="dc-pm-card__unit">μg/m³</div>
+                    <span class="dc-pm-card__grade" id="dc-pm4-grade">--</span>
+                </div>
+                <div class="dc-pm-card" id="dc-pm10-card">
+                    <div class="dc-pm-card__type">PM 10</div>
+                    <div class="dc-pm-card__value" id="dc-pm10-value">--</div>
+                    <div class="dc-pm-card__unit">μg/m³</div>
+                    <span class="dc-pm-card__grade" id="dc-pm10-grade">--</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Air Quality Gauge -->
+    <section class="dc-collapsible-section">
+        <button class="dc-collapsible-header" data-target="dc-gauge-body" aria-expanded="true">
+            <span class="dc-collapsible-header__title">📏 공기질 기준치</span>
+            <svg class="dc-collapsible-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="dc-collapsible-body open" id="dc-gauge-body">
+            <div class="dc-gauge-grid">
+                <!-- PM1.0 -->
+                <div class="dc-gauge-card">
+                    <div class="dc-gauge-card__header">
+                        <span class="dc-gauge-card__type" style="color:#f472b6">PM1.0</span>
+                        <span class="dc-gauge-card__value" id="dc-gauge-pm1-val">-- μg/m³</span>
+                    </div>
+                    <div class="dc-gauge-bar">
+                        <div class="dc-gauge-bar__segment" style="flex:1;background:var(--clr-good)"><span>좋음</span><small>0~10</small></div>
+                        <div class="dc-gauge-bar__segment" style="flex:1;background:var(--clr-normal)"><span>보통</span><small>11~25</small></div>
+                        <div class="dc-gauge-bar__segment" style="flex:1;background:var(--clr-bad)"><span>나쁨</span><small>26~50</small></div>
+                        <div class="dc-gauge-bar__segment" style="flex:1;background:var(--clr-vbad)"><span>매우나쁨</span><small>51+</small></div>
+                        <div class="dc-gauge-bar__marker" id="dc-marker-pm1"></div>
+                    </div>
+                </div>
+                <!-- PM2.5 -->
+                <div class="dc-gauge-card">
+                    <div class="dc-gauge-card__header">
+                        <span class="dc-gauge-card__type" style="color:#22c55e">PM2.5</span>
+                        <span class="dc-gauge-card__value" id="dc-gauge-pm25-val">-- μg/m³</span>
+                    </div>
+                    <div class="dc-gauge-bar">
+                        <div class="dc-gauge-bar__segment" style="flex:1;background:var(--clr-good)"><span>좋음</span><small>0~15</small></div>
+                        <div class="dc-gauge-bar__segment" style="flex:1;background:var(--clr-normal)"><span>보통</span><small>16~35</small></div>
+                        <div class="dc-gauge-bar__segment" style="flex:1;background:var(--clr-bad)"><span>나쁨</span><small>36~75</small></div>
+                        <div class="dc-gauge-bar__segment" style="flex:1;background:var(--clr-vbad)"><span>매우나쁨</span><small>76+</small></div>
+                        <div class="dc-gauge-bar__marker" id="dc-marker-pm25"></div>
+                    </div>
+                </div>
+                <!-- PM4.0 -->
+                <div class="dc-gauge-card">
+                    <div class="dc-gauge-card__header">
+                        <span class="dc-gauge-card__type" style="color:#f59e0b">PM4.0</span>
+                        <span class="dc-gauge-card__value" id="dc-gauge-pm4-val">-- μg/m³</span>
+                    </div>
+                    <div class="dc-gauge-bar">
+                        <div class="dc-gauge-bar__segment" style="flex:1;background:var(--clr-good)"><span>좋음</span><small>0~20</small></div>
+                        <div class="dc-gauge-bar__segment" style="flex:1;background:var(--clr-normal)"><span>보통</span><small>21~50</small></div>
+                        <div class="dc-gauge-bar__segment" style="flex:1;background:var(--clr-bad)"><span>나쁨</span><small>51~100</small></div>
+                        <div class="dc-gauge-bar__segment" style="flex:1;background:var(--clr-vbad)"><span>매우나쁨</span><small>101+</small></div>
+                        <div class="dc-gauge-bar__marker" id="dc-marker-pm4"></div>
+                    </div>
+                </div>
+                <!-- PM10 -->
+                <div class="dc-gauge-card">
+                    <div class="dc-gauge-card__header">
+                        <span class="dc-gauge-card__type" style="color:#6366f1">PM10</span>
+                        <span class="dc-gauge-card__value" id="dc-gauge-pm10-val">-- μg/m³</span>
+                    </div>
+                    <div class="dc-gauge-bar">
+                        <div class="dc-gauge-bar__segment" style="flex:1;background:var(--clr-good)"><span>좋음</span><small>0~30</small></div>
+                        <div class="dc-gauge-bar__segment" style="flex:1;background:var(--clr-normal)"><span>보통</span><small>31~80</small></div>
+                        <div class="dc-gauge-bar__segment" style="flex:1;background:var(--clr-bad)"><span>나쁨</span><small>81~150</small></div>
+                        <div class="dc-gauge-bar__segment" style="flex:1;background:var(--clr-vbad)"><span>매우나쁨</span><small>151+</small></div>
+                        <div class="dc-gauge-bar__marker" id="dc-marker-pm10"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Chart Section -->
+    <section class="dc-chart-section">
+        <div class="dc-chart-header">
+            <h2 class="dc-section-title">📈 미세먼지 추이</h2>
+            <div class="dc-chart-header__controls">
+                <div class="dc-chart-tabs">
+                    <button class="dc-chart-tab" data-period="realtime">실시간</button>
+                    <button class="dc-chart-tab active" data-period="24h">24시간</button>
+                    <button class="dc-chart-tab" data-period="7d">7일</button>
+                    <button class="dc-chart-tab" data-period="30d">30일</button>
+                    <button class="dc-chart-tab" data-period="1y">1년</button>
+                </div>
+            </div>
+        </div>
+        <!-- Dataset Filter Toggles -->
+        <div class="dc-dataset-filters" id="dc-dataset-filters">
+            <button class="dc-dataset-toggle active" data-key="pm1" style="--toggle-color:#f472b6"><span class="dc-toggle-dot"></span>PM1.0</button>
+            <button class="dc-dataset-toggle active" data-key="pm25" style="--toggle-color:#22c55e"><span class="dc-toggle-dot"></span>PM2.5</button>
+            <button class="dc-dataset-toggle active" data-key="pm4" style="--toggle-color:#f59e0b"><span class="dc-toggle-dot"></span>PM4.0</button>
+            <button class="dc-dataset-toggle active" data-key="pm10" style="--toggle-color:#6366f1"><span class="dc-toggle-dot"></span>PM10</button>
+        </div>
+        <div class="dc-chart-container" id="dc-chart-container">
+            <canvas id="dc-dustChart"></canvas>
+        </div>
+        <div class="dc-chart-loading" id="dc-chart-loading" style="display:none">
+            <div class="dc-spinner"></div>
+            <span>데이터 로딩 중...</span>
+        </div>
+    </section>
+
+    <!-- Stats -->
+    <section class="dc-stats-section">
+        <div class="dc-stats-header">
+            <h2 class="dc-section-title">📊 오늘의 통계</h2>
+            <div class="dc-stats-tabs">
+                <button class="dc-stats-tab" data-stat="pm1">PM1.0</button>
+                <button class="dc-stats-tab active" data-stat="pm25">PM2.5</button>
+                <button class="dc-stats-tab" data-stat="pm4">PM4.0</button>
+                <button class="dc-stats-tab" data-stat="pm10">PM10</button>
+            </div>
+        </div>
+        <div class="dc-info-row">
+            <div class="dc-info-card">
+                <div class="dc-info-card__icon">📈</div>
+                <div class="dc-info-card__label">최고</div>
+                <div class="dc-info-card__value" id="dc-stat-max">--</div>
+                <div class="dc-info-card__unit">μg/m³</div>
+            </div>
+            <div class="dc-info-card">
+                <div class="dc-info-card__icon">📉</div>
+                <div class="dc-info-card__label">최저</div>
+                <div class="dc-info-card__value" id="dc-stat-min">--</div>
+                <div class="dc-info-card__unit">μg/m³</div>
+            </div>
+            <div class="dc-info-card">
+                <div class="dc-info-card__icon">📋</div>
+                <div class="dc-info-card__label">평균</div>
+                <div class="dc-info-card__value" id="dc-stat-avg">--</div>
+                <div class="dc-info-card__unit">μg/m³</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="dc-footer">
+        <p>DustCheck · 실내 공기질 모니터링</p>
+        <p style="margin-top: 4px;">Powered by dust.slowi.com</p>
+    </footer>
+
+</div>
+
+<!-- ========== JavaScript ========== -->
+<script>
+(function() {
+    'use strict';
+
+    // ─── Firebase Config ───
+    const FIREBASE_CONFIG = {
+        apiKey: "AIzaSyDHow15zcgOpN6HYwD9jWljAaDQ_i9yySc",
+        authDomain: "dustcheck-da9e1.firebaseapp.com",
+        databaseURL: "https://dustcheck-da9e1-default-rtdb.firebaseio.com",
+        projectId: "dustcheck-da9e1",
+        storageBucket: "dustcheck-da9e1.firebasestorage.app",
+        messagingSenderId: "622287577036",
+        appId: "1:622287577036:web:2d51fec1e576a9b3270769",
+        measurementId: "G-EZZ1K8Q9WM"
+    };
+
+    // ─── Air Quality Config ───
+    const AIR_QUALITY = {
+        pm1: [
+            { label: "좋음", labelEn: "Good", max: 10, emoji: "😊", color: "#00d4aa", bg: "rgba(0,212,170,0.15)" },
+            { label: "보통", labelEn: "Normal", max: 25, emoji: "🙂", color: "#ffc107", bg: "rgba(255,193,7,0.15)" },
+            { label: "나쁨", labelEn: "Bad", max: 50, emoji: "😷", color: "#ff6b35", bg: "rgba(255,107,53,0.15)" },
+            { label: "매우나쁨", labelEn: "Very Bad", max: 9999, emoji: "🚨", color: "#ff2d55", bg: "rgba(255,45,85,0.15)" },
+        ],
+        pm25: [
+            { label: "좋음", labelEn: "Good", max: 15, emoji: "😊", color: "#00d4aa", bg: "rgba(0,212,170,0.15)" },
+            { label: "보통", labelEn: "Normal", max: 35, emoji: "🙂", color: "#ffc107", bg: "rgba(255,193,7,0.15)" },
+            { label: "나쁨", labelEn: "Bad", max: 75, emoji: "😷", color: "#ff6b35", bg: "rgba(255,107,53,0.15)" },
+            { label: "매우나쁨", labelEn: "Very Bad", max: 9999, emoji: "🚨", color: "#ff2d55", bg: "rgba(255,45,85,0.15)" },
+        ],
+        pm4: [
+            { label: "좋음", labelEn: "Good", max: 20, emoji: "😊", color: "#00d4aa", bg: "rgba(0,212,170,0.15)" },
+            { label: "보통", labelEn: "Normal", max: 50, emoji: "🙂", color: "#ffc107", bg: "rgba(255,193,7,0.15)" },
+            { label: "나쁨", labelEn: "Bad", max: 100, emoji: "😷", color: "#ff6b35", bg: "rgba(255,107,53,0.15)" },
+            { label: "매우나쁨", labelEn: "Very Bad", max: 9999, emoji: "🚨", color: "#ff2d55", bg: "rgba(255,45,85,0.15)" },
+        ],
+        pm10: [
+            { label: "좋음", labelEn: "Good", max: 30, emoji: "😊", color: "#00d4aa", bg: "rgba(0,212,170,0.15)" },
+            { label: "보통", labelEn: "Normal", max: 80, emoji: "🙂", color: "#ffc107", bg: "rgba(255,193,7,0.15)" },
+            { label: "나쁨", labelEn: "Bad", max: 150, emoji: "😷", color: "#ff6b35", bg: "rgba(255,107,53,0.15)" },
+            { label: "매우나쁨", labelEn: "Very Bad", max: 9999, emoji: "🚨", color: "#ff2d55", bg: "rgba(255,45,85,0.15)" },
+        ],
+    };
+
+    const PM_CHART_COLORS = {
+        pm1:  { border: '#f472b6', bg: 'rgba(244,114,182,0.08)' },
+        pm25: { border: '#22c55e', bg: 'rgba(34,197,94,0.08)' },
+        pm4:  { border: '#f59e0b', bg: 'rgba(245,158,11,0.08)' },
+        pm10: { border: '#6366f1', bg: 'rgba(99,102,241,0.08)' },
+    };
+
+    const PM_TYPES = [
+        { key: 'pm1',  label: 'PM1.0' },
+        { key: 'pm25', label: 'PM2.5' },
+        { key: 'pm4',  label: 'PM4.0' },
+        { key: 'pm10', label: 'PM10' },
+    ];
+
+    const DS_INDEX = { pm1: 0, pm25: 1, pm4: 2, pm10: 3 };
+
+    function getAirQuality(type, value) {
+        const levels = AIR_QUALITY[type] || AIR_QUALITY.pm25;
+        for (const level of levels) {
+            if (value <= level.max) return level;
+        }
+        return levels[levels.length - 1];
+    }
+
+    // ─── State ───
+    let chart = null;
+    let currentTab = '24h';
+    let currentStatType = 'pm25';
+    let allData = [];
+    const MAX_REALTIME_POINTS = 30;
+    const dataCache = {};
+    const CACHE_TTL = { '7d': 300000, '30d': 300000, '1y': 600000 };
+    let datasetVisible = { pm1: true, pm25: true, pm4: true, pm10: true };
+    let lastUpdateTime = null;
+    let statusShowAbsolute = false;
+
+    const $ = id => document.getElementById(id);
+
+    // ─── Init ───
+    function init() {
+        loadTheme();
+        initFirebase();
+        initChart();
+        initTabs();
+        initStatsTabs();
+        initDatasetToggles();
+        initCollapsibles();
+        initStatusToggle();
+        initThemeToggle();
+        startRelativeTimeUpdater();
+    }
+
+    // ─── Firebase ───
+    function initFirebase() {
+        try {
+            // Check if firebase app already initialized
+            if (!firebase.apps.length) {
+                firebase.initializeApp(FIREBASE_CONFIG);
+            }
+            const db = firebase.database();
+
+            db.ref('latest').on('value', snap => {
+                const data = snap.val();
+                if (data) {
+                    updateCurrentDisplay(data);
+                    updateStatus(true, data.time);
+                }
+            });
+
+            db.ref('dust_data').orderByChild('timestamp').limitToLast(1440).on('value', snap => {
+                allData = [];
+                snap.forEach(c => { allData.push(c.val()); });
+                updateChart();
+                updateStats();
+            });
+
+            updateStatus(true);
+        } catch (e) {
+            console.error('Firebase 초기화 실패:', e);
+            updateStatus(false);
+            showDemoData();
+        }
+    }
+
+    // ─── Display ───
+    function updateCurrentDisplay(data) {
+        const pm1 = data.pm1 || 0;
+        const pm25 = data.pm25 || 0;
+        const pm4 = data.pm4 || 0;
+        const pm10 = data.pm10 || 0;
+
+        animateValue('dc-pm1-value', pm1);
+        animateValue('dc-pm25-value', pm25);
+        animateValue('dc-pm4-value', pm4);
+        animateValue('dc-pm10-value', pm10);
+
+        const q1 = getAirQuality('pm1', pm1);
+        const q25 = getAirQuality('pm25', pm25);
+        const q4 = getAirQuality('pm4', pm4);
+        const q10 = getAirQuality('pm10', pm10);
+
+        styleCard('dc-pm1-card', q1);
+        styleCard('dc-pm25-card', q25);
+        styleCard('dc-pm4-card', q4);
+        styleCard('dc-pm10-card', q10);
+
+        // Main grade card (PM1.0 & PM2.5 based)
+        const ge = $('dc-grade-emoji'), gl = $('dc-grade-label'), gd = $('dc-grade-desc');
+        const idx1 = AIR_QUALITY.pm1.indexOf(q1);
+        const idx25 = AIR_QUALITY.pm25.indexOf(q25);
+        const worseQ = idx1 >= idx25 ? q1 : q25;
+
+        if (ge) {
+            if (q1.emoji === q25.emoji) {
+                ge.textContent = q25.emoji;
+            } else {
+                ge.textContent = `${q1.emoji} ${q25.emoji}`;
+            }
+        }
+        if (gl) {
+            gl.innerHTML = `PM1.0 <span style="color:${q1.color}">${q1.label}</span> &middot; PM2.5 <span style="color:${q25.color}">${q25.label}</span>`;
+            gl.style.color = '';
+        }
+        if (gd) gd.textContent = `PM1.0 ${pm1.toFixed(1)} \u03BCg/m\u00B3 (${q1.labelEn}) \u00B7 PM2.5 ${pm25.toFixed(1)} \u03BCg/m\u00B3 (${q25.labelEn})`;
+
+        const gc = $('dc-grade-card');
+        if (gc) {
+            gc.style.borderColor = worseQ.color + '22';
+            gc.classList.add('dc-data-pulse');
+            setTimeout(() => gc.classList.remove('dc-data-pulse'), 800);
+        }
+
+        // Gauges
+        updateGauge('pm1', pm1, [10, 25, 50, 100]);
+        updateGauge('pm25', pm25, [15, 35, 75, 150]);
+        updateGauge('pm4', pm4, [20, 50, 100, 200]);
+        updateGauge('pm10', pm10, [30, 80, 150, 300]);
+    }
+
+    function styleCard(cardId, q) {
+        const card = $(cardId);
+        if (!card) return;
+        const val = card.querySelector('.dc-pm-card__value');
+        if (val) val.style.color = q.color;
+        card.style.setProperty('--card-accent', q.color);
+        card.style.borderTopColor = q.color;
+        const grade = card.querySelector('.dc-pm-card__grade');
+        if (grade) {
+            grade.textContent = q.label;
+            grade.style.background = q.bg;
+            grade.style.color = q.color;
+        }
+    }
+
+    function animateValue(elementId, targetValue) {
+        const el = $(elementId);
+        if (!el) return;
+        const current = parseFloat(el.textContent) || 0;
+        const diff = targetValue - current;
+        const steps = 15;
+        let step = 0;
+        const timer = setInterval(() => {
+            step++;
+            el.textContent = (current + (diff / steps) * step).toFixed(1);
+            if (step >= steps) { el.textContent = targetValue.toFixed(1); clearInterval(timer); }
+        }, 25);
+    }
+
+    // ─── Gauge ───
+    function updateGauge(type, value, thresholds) {
+        const valEl = $(`dc-gauge-${type}-val`);
+        const marker = $(`dc-marker-${type}`);
+        if (valEl) valEl.textContent = `${value.toFixed(1)} \u03BCg/m\u00B3`;
+        if (!marker) return;
+
+        let pct = 0;
+        if (value <= thresholds[0]) {
+            pct = (value / thresholds[0]) * 25;
+        } else if (value <= thresholds[1]) {
+            pct = 25 + ((value - thresholds[0]) / (thresholds[1] - thresholds[0])) * 25;
+        } else if (value <= thresholds[2]) {
+            pct = 50 + ((value - thresholds[1]) / (thresholds[2] - thresholds[1])) * 25;
+        } else {
+            pct = 75 + Math.min(((value - thresholds[2]) / (thresholds[3] - thresholds[2])) * 25, 25);
+        }
+        pct = Math.min(pct, 100);
+        marker.style.left = `${pct}%`;
+    }
+
+    // ─── Chart ───
+    function initChart() {
+        const ctx = $('dc-dustChart');
+        if (!ctx) return;
+
+        const datasets = PM_TYPES.map(pm => {
+            const clr = PM_CHART_COLORS[pm.key];
+            return {
+                label: pm.label,
+                data: [],
+                borderColor: clr.border,
+                backgroundColor: clr.bg,
+                borderWidth: 2,
+                pointRadius: 0,
+                pointHoverRadius: 4,
+                pointHoverBackgroundColor: clr.border,
+                fill: false,
+                tension: 0.35,
+                hidden: !datasetVisible[pm.key],
+            };
+        });
+
+        chart = new Chart(ctx.getContext('2d'), {
+            type: 'line',
+            data: { labels: [], datasets },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(26,29,46,0.92)',
+                        titleColor: '#f0f0f5', bodyColor: '#f0f0f5',
+                        borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1,
+                        cornerRadius: 8, padding: 10,
+                        titleFont: { family: 'Inter', weight: '600' },
+                        bodyFont: { family: 'Inter' },
+                        callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y.toFixed(1)} \u03BCg/m\u00B3` },
+                    },
+                },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(0,0,0,0.04)', drawBorder: false },
+                        ticks: { color: '#9ca0b4', font: { family: 'Inter', size: 11 }, maxRotation: 0, maxTicksLimit: 7 },
+                    },
+                    y: {
+                        grid: { color: 'rgba(0,0,0,0.04)', drawBorder: false },
+                        ticks: { color: '#9ca0b4', font: { family: 'Inter', size: 11 } },
+                        beginAtZero: true,
+                    },
+                },
+                animation: { duration: 500, easing: 'easeOutQuart' },
+            },
+        });
+        updateChartColors();
+    }
+
+    function updateChartColors() {
+        if (!chart) return;
+        const app = $('dustcheck-app');
+        const isDark = app && app.classList.contains('dark-mode');
+        const gridClr = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+        const tickClr = isDark ? '#555570' : '#9ca0b4';
+        chart.options.scales.x.grid.color = gridClr;
+        chart.options.scales.y.grid.color = gridClr;
+        chart.options.scales.x.ticks.color = tickClr;
+        chart.options.scales.y.ticks.color = tickClr;
+        chart.update('none');
+    }
+
+    // ─── Dataset Toggle ───
+    function initDatasetToggles() {
+        document.querySelectorAll('#dustcheck-app .dc-dataset-toggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const key = btn.dataset.key;
+                const idx = DS_INDEX[key];
+                if (idx === undefined || !chart) return;
+                btn.classList.toggle('active');
+                datasetVisible[key] = btn.classList.contains('active');
+                chart.data.datasets[idx].hidden = !datasetVisible[key];
+                chart.update('none');
+            });
+        });
+    }
+
+    async function updateChart() {
+        if (!chart) return;
+        const now = Date.now();
+
+        if (currentTab === 'realtime') {
+            renderChartData(allData.slice(-MAX_REALTIME_POINTS));
+        } else if (currentTab === '24h') {
+            renderChartData(allData.filter(d => d.timestamp > now - 86400000));
+        } else {
+            const cached = dataCache[currentTab];
+            if (cached && (now - cached.ts < (CACHE_TTL[currentTab] || 300000))) {
+                renderChartData(cached.data);
+            } else {
+                await fetchPeriodData(currentTab);
+            }
+        }
+    }
+
+    async function fetchPeriodData(period) {
+        showChartLoading(true);
+        const now = Date.now();
+        let startTs;
+        if (period === '7d') startTs = now - 7 * 86400000;
+        else if (period === '30d') startTs = now - 30 * 86400000;
+        else if (period === '1y') startTs = now - 365 * 86400000;
+
+        try {
+            const db = firebase.database();
+            const snap = await db.ref('dust_data').orderByChild('timestamp').startAt(startTs).once('value');
+            const data = [];
+            snap.forEach(c => { data.push(c.val()); });
+            dataCache[period] = { data, ts: Date.now() };
+            renderChartData(data);
+        } catch (e) {
+            console.error(`${period} 데이터 로드 실패:`, e);
+        }
+        showChartLoading(false);
+    }
+
+    function renderChartData(data) {
+        if (!chart || data.length === 0) return;
+        let filtered = [...data];
+        const maxPoints = 300;
+        if (filtered.length > maxPoints) {
+            const step = Math.ceil(filtered.length / maxPoints);
+            filtered = filtered.filter((_, i) => i % step === 0);
+        }
+
+        chart.data.labels = filtered.map(d => {
+            if (!d.time) return '';
+            const parts = d.time.split(' ');
+            if (currentTab === '1y') return parts[0] ? parts[0].slice(2) : '';
+            if (currentTab === '30d' || currentTab === '7d') return parts[0] ? parts[0].slice(5) : '';
+            return parts[1] ? parts[1].slice(0, 5) : '';
+        });
+
+        chart.data.datasets[DS_INDEX.pm1].data = filtered.map(d => d.pm1 || 0);
+        chart.data.datasets[DS_INDEX.pm25].data = filtered.map(d => d.pm25 || 0);
+        chart.data.datasets[DS_INDEX.pm4].data = filtered.map(d => d.pm4 || 0);
+        chart.data.datasets[DS_INDEX.pm10].data = filtered.map(d => d.pm10 || 0);
+        chart.update('none');
+    }
+
+    function showChartLoading(show) {
+        const cc = $('dc-chart-container');
+        const cl = $('dc-chart-loading');
+        if (show) {
+            if (cc) cc.style.display = 'none';
+            if (cl) cl.style.display = 'flex';
+        } else {
+            if (cl) cl.style.display = 'none';
+            if (cc) cc.style.display = 'block';
+        }
+    }
+
+    // ─── Tabs ───
+    function initTabs() {
+        document.querySelectorAll('#dustcheck-app .dc-chart-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('#dustcheck-app .dc-chart-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentTab = tab.dataset.period;
+                updateChart();
+            });
+        });
+    }
+
+    // ─── Stats ───
+    function initStatsTabs() {
+        document.querySelectorAll('#dustcheck-app .dc-stats-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('#dustcheck-app .dc-stats-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentStatType = tab.dataset.stat;
+                updateStats();
+            });
+        });
+    }
+
+    function updateStats() {
+        if (allData.length === 0) return;
+        const today = new Date().toISOString().slice(0, 10);
+        const todayData = allData.filter(d => d.time && d.time.startsWith(today));
+        const dataset = todayData.length > 0 ? todayData : allData.slice(-60);
+
+        const values = dataset.map(d => d[currentStatType] || 0);
+        const max = Math.max(...values);
+        const min = Math.min(...values);
+        const avg = values.reduce((a, b) => a + b, 0) / values.length;
+
+        if ($('dc-stat-max')) $('dc-stat-max').textContent = max.toFixed(1);
+        if ($('dc-stat-min')) $('dc-stat-min').textContent = min.toFixed(1);
+        if ($('dc-stat-avg')) $('dc-stat-avg').textContent = avg.toFixed(1);
+    }
+
+    // ─── Theme ───
+    function loadTheme() {
+        const saved = localStorage.getItem('dustcheck-blogger-theme');
+        if (saved === 'dark') {
+            const app = $('dustcheck-app');
+            if (app) app.classList.add('dark-mode');
+        }
+    }
+
+    function initThemeToggle() {
+        const btn = $('dc-btn-theme');
+        if (!btn) return;
+        btn.addEventListener('click', () => {
+            const app = $('dustcheck-app');
+            if (!app) return;
+            app.classList.toggle('dark-mode');
+            const isDark = app.classList.contains('dark-mode');
+            localStorage.setItem('dustcheck-blogger-theme', isDark ? 'dark' : 'light');
+            updateChartColors();
+        });
+    }
+
+    // ─── PM Card Click → Scroll to Gauge ───
+    document.querySelectorAll('#dustcheck-app .dc-pm-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const gauge = document.querySelector('#dustcheck-app .dc-gauge-grid');
+            if (gauge) gauge.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+    });
+
+    // ─── Collapsible Sections ───
+    function initCollapsibles() {
+        document.querySelectorAll('#dustcheck-app .dc-collapsible-header').forEach(header => {
+            header.addEventListener('click', () => {
+                const targetId = header.dataset.target;
+                const body = $(targetId);
+                if (!body) return;
+                const isOpen = body.classList.contains('open');
+                body.classList.toggle('open');
+                header.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+            });
+        });
+    }
+
+    // ─── Status ───
+    function initStatusToggle() {
+        const statusEl = $('dc-status-area');
+        if (!statusEl) return;
+        statusEl.addEventListener('click', () => {
+            if (!lastUpdateTime) return;
+            statusShowAbsolute = !statusShowAbsolute;
+            refreshStatusText();
+        });
+    }
+
+    function refreshStatusText() {
+        const text = $('dc-status-text');
+        if (!text || !lastUpdateTime) return;
+        if (statusShowAbsolute) {
+            text.textContent = `마지막 업데이트: ${lastUpdateTime}`;
+        } else {
+            text.textContent = `마지막 업데이트: ${getRelativeTime(lastUpdateTime)}`;
+        }
+    }
+
+    function updateStatus(online, lastTime) {
+        const dot = $('dc-status-dot');
+        const text = $('dc-status-text');
+        if (dot) dot.className = online ? 'dc-status-dot' : 'dc-status-dot offline';
+        if (lastTime) lastUpdateTime = lastTime;
+        if (text) {
+            if (online && lastTime) {
+                refreshStatusText();
+            } else if (online) {
+                text.textContent = '연결 중...';
+            } else {
+                text.textContent = '오프라인 (데모 모드)';
+            }
+        }
+    }
+
+    function getRelativeTime(timeStr) {
+        try {
+            const d = new Date(timeStr.replace(' ', 'T'));
+            const diff = Math.floor((Date.now() - d.getTime()) / 1000);
+            if (diff < 10) return '방금 전';
+            if (diff < 60) return `${diff}초 전`;
+            if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
+            if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
+            return timeStr;
+        } catch (e) {
+            return timeStr;
+        }
+    }
+
+    function startRelativeTimeUpdater() {
+        setInterval(() => {
+            if (lastUpdateTime && !statusShowAbsolute) refreshStatusText();
+        }, 10000);
+    }
+
+    // ─── Demo Data ───
+    function showDemoData() {
+        updateCurrentDisplay({ pm1: 8.2, pm25: 12.4, pm4: 14.7, pm10: 18.3, time: new Date().toLocaleString('ko-KR') });
+        allData = [];
+        for (let i = 29; i >= 0; i--) {
+            const t = new Date(Date.now() - i * 60000);
+            allData.push({
+                time: t.toISOString().replace('T', ' ').slice(0, 19),
+                timestamp: t.getTime(),
+                pm1: 5 + Math.random() * 15,
+                pm25: 10 + Math.random() * 20,
+                pm4: 12 + Math.random() * 22,
+                pm10: 15 + Math.random() * 25,
+            });
+        }
+        updateChart();
+    }
+
+    // ─── Start ───
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+
+})();
+</script>

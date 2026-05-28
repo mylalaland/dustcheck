@@ -1,0 +1,4 @@
+sps30
+RPLCD
+smbus2
+firebase-admin
