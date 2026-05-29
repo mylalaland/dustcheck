@@ -26,13 +26,15 @@ const DS_INDEX = { pm1: 0, pm25: 1, pm4: 2, pm10: 3 };
 
 // Memo state
 let memos = [];
-let memoAuthenticated = false;
+let memoAuthenticated = localStorage.getItem('dustcheck-authenticated') === 'true';
 let editingMemoId = null;
+let showMemos = localStorage.getItem('dustcheck-show-memos') !== 'false'; // defaults to true
 
 // ─── Initialize ───
 document.addEventListener('DOMContentLoaded', () => {
     loadTheme();
     loadNotifSettings();
+    loadMemoToggleSetting();
     loadCollapsibleStates();
     initFirebase();
     initChart();
@@ -46,7 +48,31 @@ document.addEventListener('DOMContentLoaded', () => {
     initSettingsModal();
     initMemos();
     startRelativeTimeUpdater();
+    initDatetimeLocalAutoClose();
 });
+
+function initDatetimeLocalAutoClose() {
+    document.querySelectorAll('input[type="datetime-local"]').forEach(input => {
+        input.addEventListener('change', () => {
+            input.blur();
+        });
+    });
+}
+
+function updateDataPinState() {
+    const pinGroup = document.getElementById('data-pin-group');
+    const pinSuccess = document.getElementById('data-pin-success');
+    const inputPin = document.getElementById('data-pin');
+    
+    if (memoAuthenticated) {
+        if (pinGroup) pinGroup.style.display = 'none';
+        if (pinSuccess) pinSuccess.style.display = 'flex';
+    } else {
+        if (pinGroup) pinGroup.style.display = '';
+        if (pinSuccess) pinSuccess.style.display = 'none';
+        if (inputPin) inputPin.value = '';
+    }
+}
 
 // ─── Firebase Init ───
 function initFirebase() {
@@ -216,7 +242,7 @@ function initChart() {
     const memoPlugin = {
         id: 'memoMarkers',
         afterDraw(chartInstance) {
-            if (!memos.length) return;
+            if (!showMemos || !memos.length) return;
             const { ctx: c, chartArea, scales } = chartInstance;
             if (!chartArea || !scales.x) return;
             const xScale = scales.x;
@@ -224,6 +250,10 @@ function initChart() {
             if (!rawTimestamps || !rawTimestamps.length) return;
 
             memos.forEach(memo => {
+                if (memo.isPrivate && !memoAuthenticated) {
+                    memo._pixelX = null;
+                    return;
+                }
                 const memoTs = memo.timestamp;
                 if (!memoTs) return;
 
@@ -640,15 +670,7 @@ function initSettingsModal() {
             requestNotifPermission();
             
             // Refresh data tab PIN state
-            const pinGroup = document.getElementById('data-pin-group');
-            if (pinGroup) {
-                if (memoAuthenticated) {
-                    pinGroup.style.display = 'none';
-                } else {
-                    pinGroup.style.display = '';
-                    document.getElementById('data-pin').value = '';
-                }
-            }
+            updateDataPinState();
         });
     }
 
@@ -710,6 +732,41 @@ function initSettingsModal() {
     if (btnDelRange) btnDelRange.addEventListener('click', deleteDataRange);
     if (btnDelAll) btnDelAll.addEventListener('click', deleteAllData);
 
+    // Admin PIN Auth in Settings Modal
+    const btnDataPinAuth = document.getElementById('btn-data-pin-auth');
+    const btnDataPinLogout = document.getElementById('btn-data-pin-logout');
+    const inputDataPin = document.getElementById('data-pin');
+
+    if (btnDataPinAuth) {
+        btnDataPinAuth.addEventListener('click', () => {
+            const pinVal = inputDataPin ? inputDataPin.value : '';
+            if (pinVal === MEMO_PIN) {
+                memoAuthenticated = true;
+                localStorage.setItem('dustcheck-authenticated', 'true');
+                alert('관리자 모드로 인증되었습니다.');
+                updateDataPinState();
+                
+                // Immediately refresh Memo List and Chart
+                if (chart) chart.update('none');
+                renderMemoList();
+            } else {
+                alert('PIN 번호가 올바르지 않습니다.');
+            }
+        });
+    }
+
+    if (inputDataPin && btnDataPinAuth) {
+        inputDataPin.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                btnDataPinAuth.click();
+            }
+        });
+    }
+
+    if (btnDataPinLogout) {
+        btnDataPinLogout.addEventListener('click', handlePinOut);
+    }
+
     // Set default times for range deletion
     const endInput = document.getElementById('data-end-time');
     const startInput = document.getElementById('data-start-time');
@@ -738,6 +795,38 @@ function loadNotifSettings() {
             }
         });
     }, 0);
+}
+
+function loadMemoToggleSetting() {
+    const showMemosCheckbox = document.getElementById('settings-show-memos');
+    if (showMemosCheckbox) {
+        showMemosCheckbox.checked = showMemos;
+        showMemosCheckbox.addEventListener('change', () => {
+            showMemos = showMemosCheckbox.checked;
+            localStorage.setItem('dustcheck-show-memos', showMemos ? 'true' : 'false');
+            applyMemoVisibility();
+        });
+    }
+    applyMemoVisibility();
+}
+
+function applyMemoVisibility() {
+    const btnAddMemo = document.getElementById('btn-add-memo');
+    const memoSection = document.getElementById('memo-section');
+    if (showMemos) {
+        if (btnAddMemo) btnAddMemo.style.display = '';
+        if (memoSection) memoSection.style.display = '';
+    } else {
+        if (btnAddMemo) btnAddMemo.style.display = 'none';
+        if (memoSection) memoSection.style.display = 'none';
+        // Also hide popover if any
+        const pop = document.getElementById('memo-popover');
+        if (pop) pop.style.display = 'none';
+    }
+    // Update chart to show/hide memo markers
+    if (chart) {
+        chart.update('none');
+    }
 }
 
 function requestNotifPermission() {
@@ -940,6 +1029,14 @@ function verifyAdminPin() {
     const pinVal = document.getElementById('data-pin').value;
     if (pinVal === MEMO_PIN) {
         memoAuthenticated = true;
+        localStorage.setItem('dustcheck-authenticated', 'true');
+        
+        // Update PIN state in settings panel
+        updateDataPinState();
+        
+        // Immediately refresh Memo List and Chart
+        if (chart) chart.update('none');
+        renderMemoList();
         return true;
     }
     alert('PIN 번호가 올바르지 않습니다.');
@@ -954,6 +1051,9 @@ function deleteDataEntry(ts) {
             return;
         }
         memoAuthenticated = true;
+        localStorage.setItem('dustcheck-authenticated', 'true');
+        if (chart) chart.update('none');
+        renderMemoList();
     }
     if (confirm('해당 측정 기록을 삭제하시겠습니까?')) {
         firebase.database().ref('dust_data').orderByChild('timestamp').equalTo(Number(ts)).once('value', snap => {
@@ -1021,6 +1121,7 @@ function openMemoModal(timeStr = null, editId = null, text = null) {
     const textInput = document.getElementById('memo-text');
     const errorEl = document.getElementById('memo-error');
     const pinGroup = document.getElementById('memo-pin-group');
+    const isPrivateCheckbox = document.getElementById('memo-is-private');
 
     editingMemoId = editId;
 
@@ -1034,6 +1135,14 @@ function openMemoModal(timeStr = null, editId = null, text = null) {
     
     textInput.value = text || '';
     errorEl.style.display = 'none';
+
+    // Set private checkbox status
+    if (editingMemoId && isPrivateCheckbox) {
+        const memo = memos.find(m => m.id === editingMemoId);
+        isPrivateCheckbox.checked = memo ? !!memo.isPrivate : false;
+    } else if (isPrivateCheckbox) {
+        isPrivateCheckbox.checked = false;
+    }
 
     if (memoAuthenticated) {
         pinGroup.style.display = 'none';
@@ -1059,6 +1168,8 @@ function saveMemo() {
     const textVal = document.getElementById('memo-text').value.trim();
     const pinVal = document.getElementById('memo-pin').value;
     const errorEl = document.getElementById('memo-error');
+    const isPrivateCheckbox = document.getElementById('memo-is-private');
+    const isPrivateVal = isPrivateCheckbox ? isPrivateCheckbox.checked : false;
 
     // Validate
     if (!timeVal) { showMemoError('시간을 선택해주세요.'); return; }
@@ -1070,6 +1181,13 @@ function saveMemo() {
             showMemoError('PIN 번호가 올바르지 않습니다.'); return;
         }
         memoAuthenticated = true;
+        localStorage.setItem('dustcheck-authenticated', 'true');
+        
+        // Update other views immediately
+        if (chart) chart.update('none');
+        renderMemoList();
+        const pinGroup = document.getElementById('data-pin-group');
+        if (pinGroup) pinGroup.style.display = 'none';
     }
 
     // Build time string in "YYYY-MM-DD HH:MM:SS" format
@@ -1086,6 +1204,7 @@ function saveMemo() {
         text: textVal,
         time: timeStr,
         timestamp: dt.getTime(),
+        isPrivate: isPrivateVal,
     };
 
     if (editingMemoId) {
@@ -1110,12 +1229,13 @@ function showMemoError(msg) {
 }
 
 function handleChartMemoHover(e) {
-    if (!memos.length || !chart) return;
+    if (!showMemos || !memos.length || !chart) return;
     const hoverX = e.x !== undefined ? e.x : (e.native ? e.native.offsetX : 0);
     const hoverY = e.y !== undefined ? e.y : (e.native ? e.native.offsetY : 0);
 
     const hitMemo = memos.find(m => {
         if (m._pixelX == null) return false;
+        if (m.isPrivate && !memoAuthenticated) return false;
         return Math.abs(m._pixelX - hoverX) < 15 && hoverY < (m._chartTop || 50) + 30;
     });
 
@@ -1144,12 +1264,13 @@ function handleChartMemoHover(e) {
 }
 
 function handleChartMemoClick(e) {
-    if (!memos.length || !chart) return false;
+    if (!showMemos || !memos.length || !chart) return false;
     const clickX = e.x !== undefined ? e.x : (e.native ? e.native.offsetX : 0);
     const clickY = e.y !== undefined ? e.y : (e.native ? e.native.offsetY : 0);
 
     const hitMemo = memos.find(m => {
         if (m._pixelX == null) return false;
+        if (m.isPrivate && !memoAuthenticated) return false;
         return Math.abs(m._pixelX - clickX) < 15 && clickY < (m._chartTop || 50) + 30;
     });
 
@@ -1175,6 +1296,7 @@ function handleChartMemoClick(e) {
 }
 
 function handleChartTimeClick(e) {
+    if (!showMemos) return;
     if (!chart || !chart._rawTimestamps) return;
     const clickX = e.x !== undefined ? e.x : (e.native ? e.native.offsetX : 0);
     const xScale = chart.scales.x;
@@ -1201,33 +1323,71 @@ function renderMemoList() {
     const listEl = document.getElementById('memo-list-body');
     if (!listEl) return;
 
-    if (memos.length === 0) {
-        listEl.innerHTML = '<p style="text-align:center;color:var(--text-dim);padding:16px;font-size:0.85rem">메모가 없습니다. 차트나 테이블을 클릭하여 메모를 추가하세요.</p>';
+    // Filter out private memos if not authenticated
+    const visibleMemos = memos.filter(m => memoAuthenticated || !m.isPrivate);
+
+    let html = '';
+
+    // Render the unlock / session status bar
+    if (memoAuthenticated) {
+        html += `
+            <div class="memo-unlock-bar">
+                <div class="memo-unlock-bar__status">
+                    <span>🔓 <strong>관리자 모드</strong> (비공개 메모 활성화됨)</span>
+                </div>
+                <button class="btn-secondary" id="btn-pin-out" style="padding: 4px 10px; font-size: 0.78rem; border-color: #ef4444; color: #ef4444; margin-top: 0; margin-bottom: 0;">로그아웃 (PIN Out)</button>
+            </div>
+        `;
+    } else {
+        html += `
+            <div class="memo-unlock-bar">
+                <div class="memo-unlock-bar__status">
+                    <span>🔒 <strong>게스트 모드</strong> (비공개 메모 숨김됨)</span>
+                </div>
+                <div class="memo-unlock-bar__form">
+                    <input type="password" id="memo-list-pin" placeholder="PIN 입력" style="padding: 4px 8px; font-size: 0.78rem; width: 80px; border: 1.5px solid var(--border-card); border-radius: 6px; background: var(--bg-input); color: var(--text-primary); outline: none;" maxlength="8">
+                    <button class="btn-primary" id="btn-pin-in" style="padding: 4px 10px; font-size: 0.78rem; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer;">인증</button>
+                </div>
+            </div>
+        `;
+    }
+
+    if (visibleMemos.length === 0) {
+        html += '<p style="text-align:center;color:var(--text-dim);padding:16px;font-size:0.85rem">메모가 없습니다. 차트나 테이블을 클릭하여 메모를 추가하세요.</p>';
+        listEl.innerHTML = html;
+        attachUnlockBarHandlers();
         return;
     }
 
-    const sorted = [...memos].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    const sorted = [...visibleMemos].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     
-    let html = `
+    html += `
         <div class="memo-list-actions">
             <label class="memo-check-all"><input type="checkbox" id="memo-check-all-cb"> 전체 선택</label>
             <button class="btn-secondary btn-sm" id="memo-bulk-delete" style="padding:4px 8px; font-size:0.75rem;">선택 삭제</button>
         </div>
     `;
 
-    html += sorted.map(m => `
-        <div class="memo-item" data-id="${m.id}">
-            <input type="checkbox" class="memo-select-cb" data-id="${m.id}">
-            <div class="memo-item__info">
-                <span class="memo-item__time">${m.time || ''}</span>
-                <span class="memo-item__text">${m.text || ''}</span>
+    html += sorted.map(m => {
+        const badgeClass = m.isPrivate ? 'private' : 'public';
+        const badgeLabel = m.isPrivate ? '비공개' : '공개';
+        return `
+            <div class="memo-item" data-id="${m.id}">
+                <input type="checkbox" class="memo-select-cb" data-id="${m.id}">
+                <div class="memo-item__info">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span class="memo-item__time">${m.time || ''}</span>
+                        <span class="memo-badge ${badgeClass}">${badgeLabel}</span>
+                    </div>
+                    <span class="memo-item__text">${m.text || ''}</span>
+                </div>
+                <div class="memo-item__actions">
+                    <button class="memo-item__btn memo-edit-btn" data-id="${m.id}" title="편집">✏️</button>
+                    <button class="memo-item__btn memo-delete-btn" data-id="${m.id}" title="삭제">🗑️</button>
+                </div>
             </div>
-            <div class="memo-item__actions">
-                <button class="memo-item__btn memo-edit-btn" data-id="${m.id}" title="편집">✏️</button>
-                <button class="memo-item__btn memo-delete-btn" data-id="${m.id}" title="삭제">🗑️</button>
-            </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
     
     listEl.innerHTML = html;
 
@@ -1259,6 +1419,12 @@ function renderMemoList() {
                     const pin = prompt("PIN 번호를 입력하세요:");
                     if (pin !== MEMO_PIN) { alert("PIN 번호가 올바르지 않습니다."); return; }
                     memoAuthenticated = true;
+                    localStorage.setItem('dustcheck-authenticated', 'true');
+                    
+                    // Update views
+                    if (chart) chart.update('none');
+                    const pinGroup = document.getElementById('data-pin-group');
+                    if (pinGroup) pinGroup.style.display = 'none';
                 }
                 const updates = {};
                 selectedIds.forEach(id => updates[id] = null);
@@ -1266,6 +1432,56 @@ function renderMemoList() {
             }
         });
     }
+
+    attachUnlockBarHandlers();
+}
+
+function attachUnlockBarHandlers() {
+    const btnPinOut = document.getElementById('btn-pin-out');
+    if (btnPinOut) {
+        btnPinOut.addEventListener('click', handlePinOut);
+    }
+
+    const btnPinIn = document.getElementById('btn-pin-in');
+    const inputPin = document.getElementById('memo-list-pin');
+    if (btnPinIn && inputPin) {
+        const tryPinIn = () => {
+            const val = inputPin.value;
+            if (val === MEMO_PIN) {
+                memoAuthenticated = true;
+                localStorage.setItem('dustcheck-authenticated', 'true');
+                alert('관리자 모드로 인증되었습니다.');
+                
+                // Immediately refresh PIN input display in Settings modal data tab
+                const pinGroup = document.getElementById('data-pin-group');
+                if (pinGroup) pinGroup.style.display = 'none';
+                
+                // Update views
+                if (chart) chart.update('none');
+                renderMemoList();
+            } else {
+                alert('PIN 번호가 올바르지 않습니다.');
+            }
+        };
+
+        btnPinIn.addEventListener('click', tryPinIn);
+        inputPin.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') tryPinIn();
+        });
+    }
+}
+
+function handlePinOut() {
+    memoAuthenticated = false;
+    localStorage.removeItem('dustcheck-authenticated');
+    alert('관리자 모드에서 로그아웃되었습니다.');
+    
+    // Immediately refresh PIN input display in Settings modal data tab
+    updateDataPinState();
+    
+    // Update views
+    if (chart) chart.update('none');
+    renderMemoList();
 }
 
 function editMemo(id) {
@@ -1280,6 +1496,11 @@ function deleteMemo(id) {
             const pin = prompt("PIN 번호를 입력하세요:");
             if (pin !== MEMO_PIN) { alert("PIN 번호가 올바르지 않습니다."); return; }
             memoAuthenticated = true;
+            localStorage.setItem('dustcheck-authenticated', 'true');
+            if (chart) chart.update('none');
+            renderMemoList();
+            const pinGroup = document.getElementById('data-pin-group');
+            if (pinGroup) pinGroup.style.display = 'none';
         }
         firebase.database().ref('memos/' + id).remove();
     }

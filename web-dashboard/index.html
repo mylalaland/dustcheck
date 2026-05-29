@@ -289,6 +289,12 @@
                     <label for="memo-text">메모 내용</label>
                     <textarea id="memo-text" class="form-input" rows="3" placeholder="예: 창문 열었음, 청소 시작..."></textarea>
                 </div>
+                <div class="form-group" style="margin-top: 12px; margin-bottom: 12px;">
+                    <label for="memo-is-private" style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500; font-size: 0.82rem; user-select: none; color: var(--text-primary);">
+                        <input type="checkbox" id="memo-is-private" style="width: 16px; height: 16px; accent-color: #8b5cf6;">
+                        비공개 메모로 설정 (PIN 인증 필요)
+                    </label>
+                </div>
                 <div class="form-group" id="memo-pin-group">
                     <label for="memo-pin">PIN 번호</label>
                     <input type="password" id="memo-pin" class="form-input" maxlength="8" placeholder="인증 PIN 입력">
@@ -346,22 +352,37 @@
                             <p style="margin-bottom:12px; font-size:0.9rem; color:var(--text-primary);">다크 모드를 사용하시겠습니까?</p>
                             <button class="btn-primary" id="btn-settings-theme" style="width:100%;">다크 모드로 전환</button>
                         </div>
+                        <hr style="border:none; border-top:1px solid var(--border-card); margin:16px 0;">
+                        <div class="theme-toggle-wrap">
+                            <p style="margin-bottom:12px; font-size:0.9rem; color:var(--text-primary);">대시보드 기능 설정</p>
+                            <label class="notif-check" style="display:flex; align-items:center; gap:8px; cursor:pointer; user-select:none;">
+                                <input type="checkbox" id="settings-show-memos" checked style="width:16px; height:16px; accent-color:#8b5cf6;">
+                                <span class="notif-check__label">대시보드에 메모(추이 마커, 목록) 표시</span>
+                            </label>
+                        </div>
                     </div>
 
                     <!-- Data Management Tab -->
                     <div class="settings-pane" id="pane-data">
                         <div class="form-group" id="data-pin-group">
                             <label for="data-pin">관리자 PIN 번호</label>
-                            <input type="password" id="data-pin" class="form-input" maxlength="8" placeholder="인증 PIN 입력 (데이터 관리 전용)">
+                            <div style="display:flex; gap:8px;">
+                                <input type="password" id="data-pin" class="form-input" maxlength="8" placeholder="인증 PIN 입력 (데이터 관리 전용)" style="flex:1;">
+                                <button class="btn-primary" id="btn-data-pin-auth" style="white-space:nowrap; padding:9px 16px;">인증</button>
+                            </div>
+                        </div>
+                        <div class="form-group" id="data-pin-success" style="display:none; align-items:center; justify-content:space-between; background:rgba(34, 197, 94, 0.08); padding:10px 12px; border-radius:var(--radius-sm); border:1px solid rgba(34, 197, 94, 0.2); margin-bottom: 16px;">
+                            <span style="font-size:0.8rem; color:#22c55e; font-weight:600;">🔓 관리자 인증 완료</span>
+                            <button class="btn-secondary" id="btn-data-pin-logout" style="padding:4px 8px; font-size:0.75rem; color:#ef4444; border-color:#ef4444; margin:0;">인증 해제</button>
                         </div>
                         
                         <h4 style="margin-top:16px; margin-bottom:8px; font-size:0.9rem; color:var(--text-primary);">구간 데이터 삭제</h4>
-                        <div style="display:flex; gap:8px; align-items:center;">
-                            <div class="form-group" style="flex:1; margin-bottom:0;">
+                        <div class="data-range-picker">
+                            <div class="form-group" style="margin-bottom:0;">
                                 <input type="datetime-local" id="data-start-time" class="form-input" title="시작 시간">
                             </div>
-                            <span>~</span>
-                            <div class="form-group" style="flex:1; margin-bottom:0;">
+                            <span class="range-separator">~</span>
+                            <div class="form-group" style="margin-bottom:0;">
                                 <input type="datetime-local" id="data-end-time" class="form-input" title="종료 시간">
                             </div>
                         </div>

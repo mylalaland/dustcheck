@@ -1061,6 +1061,23 @@ textarea.form-input { resize: vertical; min-height: 70px; }
     padding: 6px 0;
 }
 
+/* ─── Data Range Picker ─── */
+.data-range-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: stretch;
+    margin-bottom: 8px;
+}
+.range-separator {
+    text-align: center;
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 0.9rem;
+    line-height: 1;
+    margin: 2px 0;
+}
+
 /* ─── Buttons ─── */
 .btn-primary {
     padding: 9px 22px;
@@ -1124,6 +1141,28 @@ textarea.form-input { resize: vertical; min-height: 70px; }
 .memo-popover__close:hover { color: var(--text-primary); }
 
 /* ─── Settings Modal Tabs ─── */
+/* ─── Settings Modal Layout & Fixed Size ─── */
+#settings-modal .modal-card {
+    min-height: 480px;
+    height: 480px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#settings-modal .modal-card__body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#settings-modal .settings-content {
+    flex: 1;
+    overflow-y: auto;
+    background: var(--bg-body);
+}
+
 .settings-tabs {
     display: flex;
     border-bottom: 1px solid var(--border-card);
@@ -1146,11 +1185,8 @@ textarea.form-input { resize: vertical; min-height: 70px; }
     background: var(--bg-body);
 }
 .settings-tab.active {
-    color: var(--primary);
-    border-bottom-color: var(--primary);
-    background: var(--bg-body);
-}
-.settings-content {
+    color: #8b5cf6;
+    border-bottom-color: #8b5cf6;
     background: var(--bg-body);
 }
 .settings-pane {
@@ -1209,3 +1245,82 @@ textarea.form-input { resize: vertical; min-height: 70px; }
     cursor: pointer;
     accent-color: var(--primary-color);
 }
+
+/* ─── Memo Access Control ─── */
+.memo-unlock-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    background: rgba(139, 92, 246, 0.04);
+    border-bottom: 1px solid var(--border-card);
+    gap: 8px;
+    flex-wrap: wrap;
+    animation: fadeIn 0.2s ease;
+}
+.memo-unlock-bar__status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+.memo-unlock-bar__form {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.memo-badge {
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+    display: inline-block;
+}
+.memo-badge.public {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+}
+.memo-badge.private {
+    background: rgba(139, 92, 246, 0.15);
+    color: #8b5cf6;
+}
+
+
+/* ─── Memo Lock Screen ─── */
+.memo-lock-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px;
+    text-align: center;
+    animation: fadeIn 0.2s ease;
+}
+.memo-lock-screen__icon {
+    font-size: 2.5rem;
+    margin-bottom: 12px;
+    filter: drop-shadow(0 4px 6px rgba(139, 92, 246, 0.15));
+}
+.memo-lock-screen__title {
+    margin: 0 0 8px 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.memo-lock-screen__desc {
+    margin: 0 0 20px 0;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    max-width: 280px;
+    line-height: 1.4;
+}
+.memo-lock-screen__form {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+    max-width: 260px;
+    justify-content: center;
+}
+
