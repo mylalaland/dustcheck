@@ -162,6 +162,20 @@
                         <div class="gauge-bar__marker" id="marker-pm10"></div>
                     </div>
                 </div>
+                <!-- 지역 PM10 Gauge -->
+                <div class="gauge-card">
+                    <div class="gauge-card__header">
+                        <span class="gauge-card__type" style="color:#a855f7">🌍 지역 PM10</span>
+                        <span class="gauge-card__value" id="gauge-outdoor_pm10-val">-- μg/m³</span>
+                    </div>
+                    <div class="gauge-bar" id="gauge-outdoor_pm10">
+                        <div class="gauge-bar__segment" data-level="좋음" style="flex:1;background:var(--clr-good)"><span>좋음</span><small>0~30</small></div>
+                        <div class="gauge-bar__segment" data-level="보통" style="flex:1;background:var(--clr-normal)"><span>보통</span><small>31~80</small></div>
+                        <div class="gauge-bar__segment" data-level="나쁨" style="flex:1;background:var(--clr-bad)"><span>나쁨</span><small>81~150</small></div>
+                        <div class="gauge-bar__segment" data-level="매우나쁨" style="flex:1;background:var(--clr-vbad)"><span>매우나쁨</span><small>151+</small></div>
+                        <div class="gauge-bar__marker" id="marker-outdoor_pm10"></div>
+                    </div>
+                </div>
             </div>
             </div>
         </section>

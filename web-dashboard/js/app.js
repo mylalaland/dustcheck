@@ -1713,6 +1713,7 @@ function updateOutdoorCards() {
         styleCard('outdoor-pm10-card', q10);
         var el10 = document.getElementById('outdoor-pm10-grade');
         if (el10) { el10.textContent = q10.label; el10.style.color = q10.color; }
+        updateGauge('outdoor_pm10', _outdoorCache.pm10, [30, 80, 150, 300]);
     }
     var stEl = document.getElementById('outdoor-station');
     if (stEl) stEl.textContent = stName;
