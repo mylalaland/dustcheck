@@ -76,6 +76,12 @@ class FirebaseUploader:
             "pm10": data.get("pm10", 0.0),
         }
 
+        # 실외 데이터가 있으면 추가
+        if "outdoor_pm25" in data and data["outdoor_pm25"] is not None:
+            record["outdoor_pm25"] = data["outdoor_pm25"]
+        if "outdoor_pm10" in data and data["outdoor_pm10"] is not None:
+            record["outdoor_pm10"] = data["outdoor_pm10"]
+
         # 재시도 로직 (최대 3회)
         for attempt in range(3):
             try:
