@@ -44,17 +44,18 @@ class DustDisplay:
             logger.warning("→ LCD 주소를 확인하세요: i2cdetect -y 1")
             self.connected = False
 
-    def show_dust_data(self, data):
+    def show_dust_data(self, data, outdoor_pm25=None):
         """
         미세먼지 데이터를 LCD에 표시합니다.
-        PM1.0과 PM2.5 수치만 크게 표시하여 시인성을 극대화합니다.
+        PM1.0(실내), PM2.5(실내), PM2.5(실외) 세 수치를 표시합니다.
 
         표시 형식 (16x2 LCD):
-            1.0>  9.6  [G]
-            2.5> 10.2  [N]
+            9.6  10.2   42
+            IN1  IN25  OUT
 
         Args:
             data: {"pm1": float, "pm25": float, "pm4": float, "pm10": float}
+            outdoor_pm25: 실외 PM2.5 값 (None이면 "--" 표시)
         """
         if not self.connected or not self.lcd:
             return
@@ -63,16 +64,16 @@ class DustDisplay:
             pm1 = data.get("pm1", 0.0)
             pm25 = data.get("pm25", 0.0)
 
-            # 공기질 등급 약어 (LCD는 한글 미지원이므로 영문 약어 사용)
-            q1 = get_air_quality("pm1", pm1)
-            q25 = get_air_quality("pm25", pm25)
-            g1 = q1["label_en"][0] if q1 else "?"   # G/N/B/V
-            g25 = q25["label_en"][0] if q25 else "?"
+            # 실외 값 포맷
+            if outdoor_pm25 is not None:
+                out_str = f"{outdoor_pm25:4.0f}"
+            else:
+                out_str = "  --"
 
-            # 1줄: PM1.0 수치 (마커 + 수치 + 등급)
-            # 2줄: PM2.5 수치
-            line1 = f"1.0>{pm1:6.1f}   [{g1}]"
-            line2 = f"2.5>{pm25:6.1f}   [{g25}]"
+            # 1줄: 세 수치 (16자)
+            line1 = f"{pm1:4.1f} {pm25:5.1f} {out_str}"
+            # 2줄: 라벨 (16자)
+            line2 = " IN1  IN25   OUT"
 
             self.lcd.cursor_pos = (0, 0)
             self.lcd.write_string(line1[:self.cols])

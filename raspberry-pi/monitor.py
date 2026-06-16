@@ -26,12 +26,15 @@ from config import (
     SENSOR_READ_INTERVAL,
     FIREBASE_SEND_INTERVAL,
     CSV_SAVE_DIR,
+    AIRKOREA_API_KEY,
+    AIRKOREA_STATION,
     get_air_quality,
 )
 from sensor import DustSensor
 from display import DustDisplay
 from firebase_uploader import FirebaseUploader
 from csv_logger import CSVLogger
+from outdoor import fetch_outdoor_pm25
 
 # ─────────────────────────────────────────────
 # 로깅 설정
@@ -137,9 +140,18 @@ class DustCheckMonitor:
         logger.info(f"  화면 (LCD):    {'✅ 연결됨' if self.display.connected else '⚠️ 미연결 (콘솔만 사용)'}")
         logger.info(f"  클라우드 (FB): {'✅ 연결됨' if self.uploader.connected else '⚠️ 미연결 (로컬만 저장)'}")
         logger.info(f"  CSV 백업:      ✅ 활성")
+        logger.info(f"  실외 PM2.5:    {'✅ API 키 설정됨 (' + AIRKOREA_STATION + ')' if AIRKOREA_API_KEY else '⚠️ API 키 미설정'}")
         logger.info(f"  측정 주기:     {SENSOR_READ_INTERVAL}초")
         logger.info(f"  전송 주기:     {FIREBASE_SEND_INTERVAL}초")
         print()
+
+        # 실외 PM2.5 초기 조회
+        if AIRKOREA_API_KEY:
+            outdoor = fetch_outdoor_pm25(AIRKOREA_API_KEY, AIRKOREA_STATION)
+            if outdoor is not None:
+                logger.info(f"  실외 PM2.5 ({AIRKOREA_STATION}): {outdoor} μg/m³")
+            else:
+                logger.warning(f"  실외 PM2.5 초기 조회 실패")
 
         if not self.sensor.connected:
             logger.error("⚠️  센서가 연결되지 않았습니다! 선 연결을 확인하세요.")
@@ -163,8 +175,9 @@ class DustCheckMonitor:
                     # 콘솔 출력
                     print_dust_data(data, quality)
 
-                    # LCD 표시
-                    self.display.show_dust_data(data)
+                    # LCD 표시 (실외 PM2.5 포함)
+                    outdoor_pm25 = fetch_outdoor_pm25(AIRKOREA_API_KEY, AIRKOREA_STATION) if AIRKOREA_API_KEY else None
+                    self.display.show_dust_data(data, outdoor_pm25=outdoor_pm25)
 
                     # Firebase 전송 (주기 확인)
                     now = time.time()
