@@ -14,6 +14,10 @@ const MAX_REALTIME_POINTS = 30;
 const dataCache = {};   // { '7d': { data:[], ts: Date.now() }, ... }
 const CACHE_TTL = { '7d': 300000, '30d': 300000, '1y': 600000 };
 
+// 에어코리아 지역 데이터 캐시 (전역)
+let _outdoorCache = { pm25: null, pm10: null, station: '', time: '', fetchedAt: 0 };
+const AIRKOREA_CACHE_TTL = 3600000; // 1시간
+
 // Dataset visibility — all 4 active by default
 let datasetVisible = { pm1: true, pm25: true, outdoor: true, pm10: true };
 
@@ -1663,3 +1667,75 @@ function deleteMemo(id) {
     }
 }
 
+// --- AirKorea Outdoor Data ---
+function getStation() {
+    return localStorage.getItem('dustcheck-station') || AIRKOREA_DEFAULT_STATION;
+}
+
+async function fetchAirkoreaData() {
+    var station = getStation();
+    var now = Date.now();
+    if (_outdoorCache.station === station && now - _outdoorCache.fetchedAt < AIRKOREA_CACHE_TTL && _outdoorCache.pm25 !== null) return;
+    try {
+        var url = 'https://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getMsrstnAcctoRltmMesureDnsty?stationName=' + encodeURIComponent(station) + '&dataTerm=daily&pageNo=1&numOfRows=1&returnType=json&serviceKey=' + AIRKOREA_API_KEY;
+        var res = await fetch(url);
+        var json = await res.json();
+        if (json.response && json.response.body && json.response.body.items) {
+            var items = json.response.body.items;
+            var item = items[0] || items;
+            var pm25 = parseFloat(item.pm25Value);
+            var pm10 = parseFloat(item.pm10Value);
+            _outdoorCache = { pm25: isNaN(pm25) ? null : pm25, pm10: isNaN(pm10) ? null : pm10, station: station, time: item.dataTime || '', fetchedAt: now };
+            updateOutdoorCards();
+            console.log('AirKorea [' + station + '] PM2.5=' + pm25 + ' PM10=' + pm10);
+        }
+    } catch (e) { console.warn('AirKorea API error:', e); }
+    setTimeout(fetchAirkoreaData, AIRKOREA_CACHE_TTL);
+}
+
+function updateOutdoorCards() {
+    if (_outdoorCache.pm25 !== null) {
+        animateValue('outdoor-value', _outdoorCache.pm25);
+        var qOut = getAirQuality('outdoor', _outdoorCache.pm25);
+        styleCard('outdoor-card', qOut);
+        var el = document.getElementById('outdoor-grade');
+        if (el) { el.textContent = qOut.label; el.style.color = qOut.color; }
+        updateGauge('outdoor', _outdoorCache.pm25, [15, 35, 75, 150]);
+    }
+    var stEl = document.getElementById('outdoor-station');
+    if (stEl) stEl.textContent = (_outdoorCache.station || getStation());
+}
+
+function initOutdoorCard() {
+    var card = document.getElementById('outdoor-card');
+    var modal = document.getElementById('outdoor-modal');
+    var closeBtn = document.getElementById('outdoor-modal-close');
+    if (!card || !modal) return;
+    card.addEventListener('click', function() {
+        document.getElementById('outdoor-modal-station').textContent = (_outdoorCache.station || getStation()) + ' measurement station';
+        document.getElementById('outdoor-detail-pm25').textContent = _outdoorCache.pm25 !== null ? _outdoorCache.pm25.toFixed(0) : '--';
+        document.getElementById('outdoor-detail-pm10').textContent = _outdoorCache.pm10 !== null ? _outdoorCache.pm10.toFixed(0) : '--';
+        document.getElementById('outdoor-detail-time').textContent = _outdoorCache.time ? _outdoorCache.time : '';
+        if (_outdoorCache.pm25 !== null) { var q = getAirQuality('outdoor', _outdoorCache.pm25); document.getElementById('outdoor-detail-pm25').style.color = q.color; }
+        if (_outdoorCache.pm10 !== null) { var q = getAirQuality('pm10', _outdoorCache.pm10); document.getElementById('outdoor-detail-pm10').style.color = q.color; }
+        modal.style.display = 'flex';
+    });
+    if (closeBtn) closeBtn.addEventListener('click', function() { modal.style.display = 'none'; });
+    modal.addEventListener('click', function(e) { if (e.target === modal) modal.style.display = 'none'; });
+}
+
+function initStationSettings() {
+    var input = document.getElementById('settings-station');
+    var saveBtn = document.getElementById('btn-save-station');
+    var msg = document.getElementById('station-save-msg');
+    if (!input || !saveBtn) return;
+    input.value = getStation();
+    saveBtn.addEventListener('click', function() {
+        var val = input.value.trim();
+        if (!val) return;
+        localStorage.setItem('dustcheck-station', val);
+        _outdoorCache.fetchedAt = 0;
+        fetchAirkoreaData();
+        if (msg) { msg.style.display = 'block'; setTimeout(function() { msg.style.display = 'none'; }, 3000); }
+    });
+}
