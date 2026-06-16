@@ -30,3 +30,8 @@ serviceAccountKey.json
 secrets.json
 credentials.json
 
+# Deploy utilities (contain SSH credentials)
+pi_deploy.py
+pi_check.py
+pi_find.py
+
