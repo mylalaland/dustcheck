@@ -1765,6 +1765,29 @@ function initStationSettings() {
     if (!input || !searchBtn) return;
     if (csn) csn.textContent = getStation();
     input.addEventListener('keydown', function(e) { if (e.key === 'Enter') searchBtn.click(); });
+
+    function selectStation(name) {
+        localStorage.setItem('dustcheck-station', name);
+        if (csn) csn.textContent = name;
+        _outdoorCache.fetchedAt = 0;
+        fetchAirkoreaData();
+        resultsDiv.innerHTML = '';
+        input.value = '';
+        if (msg) { msg.textContent = '✅ ' + name + ' 측정소로 설정되었습니다.'; msg.style.display = 'block'; setTimeout(function() { msg.style.display = 'none'; }, 4000); }
+    }
+
+    function renderResults(items) {
+        resultsDiv.innerHTML = items.map(function(it) {
+            return '<button class="station-result-btn" data-name="' + it.stationName + '" style="display:block;width:100%;text-align:left;padding:10px 12px;margin-bottom:4px;border:1px solid var(--border-card);border-radius:var(--radius-sm);background:var(--bg-card);cursor:pointer;font-size:0.8rem;color:var(--text-primary);transition:all 0.2s;">' +
+                '<strong>' + it.stationName + '</strong> <span style="color:var(--text-secondary);font-size:0.7rem;">' + (it.addr || '') + '</span></button>';
+        }).join('');
+        resultsDiv.querySelectorAll('.station-result-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() { selectStation(this.getAttribute('data-name')); });
+            btn.addEventListener('mouseenter', function() { this.style.borderColor = '#6366f1'; this.style.background = 'rgba(99,102,241,0.05)'; });
+            btn.addEventListener('mouseleave', function() { this.style.borderColor = ''; this.style.background = ''; });
+        });
+    }
+
     searchBtn.addEventListener('click', async function() {
         var query = input.value.trim();
         if (!query) return;
@@ -1774,32 +1797,20 @@ function initStationSettings() {
         try {
             var url = 'https://apis.data.go.kr/B552584/MsrstnInfoInqireSvc/getMsrstnList?addr=' + encodeURIComponent(query) + '&returnType=json&numOfRows=10&pageNo=1&serviceKey=' + AIRKOREA_API_KEY;
             var res = await fetch(url);
+            if (!res.ok) throw new Error('API ' + res.status);
             var json = await res.json();
             var items = (json.response && json.response.body && json.response.body.items) ? json.response.body.items : [];
             if (items.length === 0) {
                 resultsDiv.innerHTML = '<p style="font-size:0.8rem;color:var(--text-secondary);padding:8px;">😔 "' + query + '" 근처에 측정소를 찾지 못했습니다.</p>';
             } else {
-                resultsDiv.innerHTML = items.map(function(it) {
-                    return '<button class="station-result-btn" data-name="' + it.stationName + '" style="display:block;width:100%;text-align:left;padding:10px 12px;margin-bottom:4px;border:1px solid var(--border-card);border-radius:var(--radius-sm);background:var(--bg-card);cursor:pointer;font-size:0.8rem;color:var(--text-primary);transition:all 0.2s;">' +
-                        '<strong>' + it.stationName + '</strong> <span style="color:var(--text-secondary);font-size:0.7rem;">' + (it.addr || '') + '</span></button>';
-                }).join('');
-                resultsDiv.querySelectorAll('.station-result-btn').forEach(function(btn) {
-                    btn.addEventListener('click', function() {
-                        var name = this.getAttribute('data-name');
-                        localStorage.setItem('dustcheck-station', name);
-                        if (csn) csn.textContent = name;
-                        _outdoorCache.fetchedAt = 0;
-                        fetchAirkoreaData();
-                        resultsDiv.innerHTML = '';
-                        input.value = '';
-                        if (msg) { msg.textContent = '✅ ' + name + ' 측정소로 설정되었습니다.'; msg.style.display = 'block'; setTimeout(function() { msg.style.display = 'none'; }, 4000); }
-                    });
-                    btn.addEventListener('mouseenter', function() { this.style.borderColor = '#6366f1'; this.style.background = 'rgba(99,102,241,0.05)'; });
-                    btn.addEventListener('mouseleave', function() { this.style.borderColor = ''; this.style.background = ''; });
-                });
+                renderResults(items);
             }
         } catch (e) {
-            resultsDiv.innerHTML = '<p style="font-size:0.8rem;color:#ef4444;padding:8px;">검색 중 오류가 발생했습니다.</p>';
+            // API 실패 시 직접 입력 모드
+            resultsDiv.innerHTML = '<p style="font-size:0.8rem;color:var(--text-secondary);padding:8px;">측정소 검색 API 연결 실패. 측정소명을 직접 입력하세요.</p>' +
+                '<button id="btn-direct-save" style="padding:8px 16px;background:#6366f1;color:white;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:0.8rem;">\"' + query + '\" 으로 직접 설정</button>';
+            var directBtn = document.getElementById('btn-direct-save');
+            if (directBtn) directBtn.addEventListener('click', function() { selectStation(query); });
         }
         searchBtn.textContent = '검색';
         searchBtn.disabled = false;

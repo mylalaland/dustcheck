@@ -145,13 +145,13 @@ class DustCheckMonitor:
         logger.info(f"  전송 주기:     {FIREBASE_SEND_INTERVAL}초")
         print()
 
-        # 실외 PM2.5 초기 조회
+        # 실외 PM2.5/PM10 초기 조회
         if AIRKOREA_API_KEY:
-            outdoor = fetch_outdoor_pm25(AIRKOREA_API_KEY, AIRKOREA_STATION)
-            if outdoor is not None:
-                logger.info(f"  실외 PM2.5 ({AIRKOREA_STATION}): {outdoor} μg/m³")
+            outdoor_init = fetch_outdoor_data(AIRKOREA_API_KEY, AIRKOREA_STATION)
+            if outdoor_init["pm25"] is not None:
+                logger.info(f"  실외 PM2.5 ({AIRKOREA_STATION}): {outdoor_init['pm25']} μg/m³, PM10: {outdoor_init['pm10']} μg/m³")
             else:
-                logger.warning(f"  실외 PM2.5 초기 조회 실패")
+                logger.warning(f"  실외 미세먼지 초기 조회 실패")
 
         if not self.sensor.connected:
             logger.error("⚠️  센서가 연결되지 않았습니다! 선 연결을 확인하세요.")
