@@ -74,11 +74,12 @@
                         <div class="pm-card__unit">μg/m³</div>
                         <span class="pm-card__grade" id="pm25-grade">--</span>
                     </div>
-                    <div class="pm-card" id="pm4-card">
-                        <div class="pm-card__type">PM 4.0</div>
-                        <div class="pm-card__value" id="pm4-value">--</div>
+                    <div class="pm-card" id="outdoor-card" style="cursor:pointer; position:relative;" title="클릭하여 지역 상세 보기">
+                        <div class="pm-card__type">🌍 지역 PM2.5</div>
+                        <div class="pm-card__value" id="outdoor-value">--</div>
                         <div class="pm-card__unit">μg/m³</div>
-                        <span class="pm-card__grade" id="pm4-grade">--</span>
+                        <span class="pm-card__grade" id="outdoor-grade">--</span>
+                        <small id="outdoor-station" style="display:block;font-size:0.65rem;color:var(--text-secondary);margin-top:2px;"></small>
                     </div>
                     <div class="pm-card" id="pm10-card">
                         <div class="pm-card__type">PM 10</div>
@@ -126,18 +127,18 @@
                         <div class="gauge-bar__marker" id="marker-pm25"></div>
                     </div>
                 </div>
-                <!-- PM4.0 Gauge -->
+                <!-- 지역 PM2.5 Gauge -->
                 <div class="gauge-card">
                     <div class="gauge-card__header">
-                        <span class="gauge-card__type" style="color:#f59e0b">PM4.0</span>
-                        <span class="gauge-card__value" id="gauge-pm4-val">-- μg/m³</span>
+                        <span class="gauge-card__type" style="color:#f59e0b">🌍 지역 PM2.5</span>
+                        <span class="gauge-card__value" id="gauge-outdoor-val">-- μg/m³</span>
                     </div>
-                    <div class="gauge-bar" id="gauge-pm4">
-                        <div class="gauge-bar__segment" data-level="좋음" style="flex:1;background:var(--clr-good)"><span>좋음</span><small>0~20</small></div>
-                        <div class="gauge-bar__segment" data-level="보통" style="flex:1;background:var(--clr-normal)"><span>보통</span><small>21~50</small></div>
-                        <div class="gauge-bar__segment" data-level="나쁨" style="flex:1;background:var(--clr-bad)"><span>나쁨</span><small>51~100</small></div>
-                        <div class="gauge-bar__segment" data-level="매우나쁨" style="flex:1;background:var(--clr-vbad)"><span>매우나쁨</span><small>101+</small></div>
-                        <div class="gauge-bar__marker" id="marker-pm4"></div>
+                    <div class="gauge-bar" id="gauge-outdoor">
+                        <div class="gauge-bar__segment" data-level="좋음" style="flex:1;background:var(--clr-good)"><span>좋음</span><small>0~15</small></div>
+                        <div class="gauge-bar__segment" data-level="보통" style="flex:1;background:var(--clr-normal)"><span>보통</span><small>16~35</small></div>
+                        <div class="gauge-bar__segment" data-level="나쁨" style="flex:1;background:var(--clr-bad)"><span>나쁨</span><small>36~75</small></div>
+                        <div class="gauge-bar__segment" data-level="매우나쁨" style="flex:1;background:var(--clr-vbad)"><span>매우나쁨</span><small>76+</small></div>
+                        <div class="gauge-bar__marker" id="marker-outdoor"></div>
                     </div>
                 </div>
                 <!-- PM10 Gauge -->
@@ -185,7 +186,7 @@
             <div class="dataset-filters" id="dataset-filters">
                 <button class="dataset-toggle active" data-key="pm1" style="--toggle-color:#f472b6"><span class="toggle-dot"></span>PM1.0</button>
                 <button class="dataset-toggle active" data-key="pm25" style="--toggle-color:#22c55e"><span class="toggle-dot"></span>PM2.5</button>
-                <button class="dataset-toggle active" data-key="pm4" style="--toggle-color:#f59e0b"><span class="toggle-dot"></span>PM4.0</button>
+                <button class="dataset-toggle active" data-key="outdoor" style="--toggle-color:#f59e0b"><span class="toggle-dot"></span>지역PM2.5</button>
                 <button class="dataset-toggle active" data-key="pm10" style="--toggle-color:#6366f1"><span class="toggle-dot"></span>PM10</button>
             </div>
             <div class="chart-container" id="chart-container">
@@ -222,7 +223,7 @@
                 <div class="stats-tabs">
                     <button class="stats-tab" data-stat="pm1">PM1.0</button>
                     <button class="stats-tab active" data-stat="pm25">PM2.5</button>
-                    <button class="stats-tab" data-stat="pm4">PM4.0</button>
+                    <button class="stats-tab" data-stat="outdoor">지역PM2.5</button>
                     <button class="stats-tab" data-stat="pm10">PM10</button>
                 </div>
             </div>
@@ -319,6 +320,7 @@
                 <div class="settings-tabs">
                     <button class="settings-tab active" data-tab="pane-notif">🔔 알림</button>
                     <button class="settings-tab" data-tab="pane-theme">🎨 디스플레이</button>
+                    <button class="settings-tab" data-tab="pane-location">📍 측정 위치</button>
                     <button class="settings-tab" data-tab="pane-data">💾 데이터 관리</button>
                 </div>
                 
@@ -374,6 +376,19 @@
                         </div>
                     </div>
 
+                    <!-- Location Tab -->
+                    <div class="settings-pane" id="pane-location">
+                        <div class="theme-toggle-wrap">
+                            <p style="margin-bottom:8px; font-size:0.9rem; color:var(--text-primary); font-weight:600;">📍 에어코리아 측정소 설정</p>
+                            <p style="margin-bottom:12px; font-size:0.75rem; color:var(--text-secondary);">가까운 측정소 이름을 입력하세요. <a href="https://www.airkorea.or.kr/web/stationInfo" target="_blank" style="color:#6366f1;">측정소 검색</a></p>
+                            <div style="display:flex; gap:8px;">
+                                <input type="text" id="settings-station" class="form-input" placeholder="예: 물금읍, 동작구" style="flex:1;">
+                                <button class="btn-primary" id="btn-save-station" style="white-space:nowrap; padding:9px 16px;">저장</button>
+                            </div>
+                            <p id="station-save-msg" style="margin-top:8px; font-size:0.75rem; color:#22c55e; display:none;">✅ 저장되었습니다.</p>
+                        </div>
+                    </div>
+
                     <!-- Data Management Tab -->
                     <div class="settings-pane" id="pane-data">
                         <div class="form-group" id="data-pin-group">
@@ -407,6 +422,32 @@
                         <button class="btn-primary" id="btn-delete-all" style="width:100%; background:#ef4444;">전체 데이터 삭제</button>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Outdoor Detail Modal -->
+    <div class="modal-overlay" id="outdoor-modal" style="display:none">
+        <div class="modal-card" style="max-width:360px;">
+            <div class="modal-card__header">
+                <h3>🌍 지역 미세먼지 상세</h3>
+                <button class="modal-card__close" id="outdoor-modal-close">&times;</button>
+            </div>
+            <div class="modal-card__body" style="padding:16px;">
+                <p id="outdoor-modal-station" style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:12px;"></p>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div style="background:var(--bg-card); border:1px solid var(--border-card); border-radius:var(--radius-sm); padding:12px; text-align:center;">
+                        <div style="font-size:0.7rem; color:var(--text-secondary);">PM2.5</div>
+                        <div id="outdoor-detail-pm25" style="font-size:1.5rem; font-weight:700; color:#22c55e;">--</div>
+                        <div style="font-size:0.65rem; color:var(--text-secondary);">μg/m³</div>
+                    </div>
+                    <div style="background:var(--bg-card); border:1px solid var(--border-card); border-radius:var(--radius-sm); padding:12px; text-align:center;">
+                        <div style="font-size:0.7rem; color:var(--text-secondary);">PM10</div>
+                        <div id="outdoor-detail-pm10" style="font-size:1.5rem; font-weight:700; color:#6366f1;">--</div>
+                        <div style="font-size:0.65rem; color:var(--text-secondary);">μg/m³</div>
+                    </div>
+                </div>
+                <p id="outdoor-detail-time" style="margin-top:12px; font-size:0.7rem; color:var(--text-secondary); text-align:center;"></p>
             </div>
         </div>
     </div>

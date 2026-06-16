@@ -15,7 +15,7 @@ const dataCache = {};   // { '7d': { data:[], ts: Date.now() }, ... }
 const CACHE_TTL = { '7d': 300000, '30d': 300000, '1y': 600000 };
 
 // Dataset visibility — all 4 active by default
-let datasetVisible = { pm1: true, pm25: true, pm4: true, pm10: true };
+let datasetVisible = { pm1: true, pm25: true, outdoor: true, pm10: true };
 
 // Chart display settings
 let chartSettings = {
@@ -28,7 +28,7 @@ let prevGrade = { pm25: null, pm10: null };
 let notifSettings = {};
 
 // Dataset index mapping
-const DS_INDEX = { pm1: 0, pm25: 1, pm4: 2, pm10: 3 };
+const DS_INDEX = { pm1: 0, pm25: 1, outdoor: 2, pm10: 3 };
 
 // Memo state
 let memos = [];
@@ -53,8 +53,11 @@ document.addEventListener('DOMContentLoaded', () => {
     initStatusToggle();
     initSettingsModal();
     initMemos();
+    initOutdoorCard();
+    initStationSettings();
     startRelativeTimeUpdater();
     initDatetimeLocalAutoClose();
+    fetchAirkoreaData();
 });
 
 function initDatetimeLocalAutoClose() {
@@ -114,22 +117,31 @@ function initFirebase() {
 function updateCurrentDisplay(data) {
     const pm1 = data.pm1 || 0;
     const pm25 = data.pm25 || 0;
-    const pm4 = data.pm4 || 0;
     const pm10 = data.pm10 || 0;
 
     animateValue('pm1-value', pm1);
     animateValue('pm25-value', pm25);
-    animateValue('pm4-value', pm4);
     animateValue('pm10-value', pm10);
+
+    // 지역(outdoor) 데이터는 에어코리아에서 별도 fetch
+    const outdoorVal = _outdoorCache.pm25;
+    if (outdoorVal !== null) {
+        animateValue('outdoor-value', outdoorVal);
+        const qOut = getAirQuality('outdoor', outdoorVal);
+        styleCard('outdoor-card', qOut);
+        const el = document.getElementById('outdoor-grade');
+        if (el) { el.textContent = qOut.label; el.style.color = qOut.color; }
+        updateGauge('outdoor', outdoorVal, [15, 35, 75, 150]);
+        const stEl = document.getElementById('outdoor-station');
+        if (stEl) stEl.textContent = _outdoorCache.station || '';
+    }
 
     const q1 = getAirQuality('pm1', pm1);
     const q25 = getAirQuality('pm25', pm25);
-    const q4 = getAirQuality('pm4', pm4);
     const q10 = getAirQuality('pm10', pm10);
 
     styleCard('pm1-card', q1);
     styleCard('pm25-card', q25);
-    styleCard('pm4-card', q4);
     styleCard('pm10-card', q10);
 
     // Main grade card (PM1.0 & PM2.5 based)
@@ -162,7 +174,6 @@ function updateCurrentDisplay(data) {
     // Gauges
     updateGauge('pm1', pm1, [10, 25, 50, 100]);
     updateGauge('pm25', pm25, [15, 35, 75, 150]);
-    updateGauge('pm4', pm4, [20, 50, 100, 200]);
     updateGauge('pm10', pm10, [30, 80, 150, 300]);
 }
 
@@ -549,7 +560,7 @@ function renderChartData(data) {
             if (ts2 - ts1 > gapThreshold) {
                 // Insert null at midpoint so gap is proportional
                 const midTs = Math.round((ts1 + ts2) / 2);
-                withGaps.push({ time: '', timestamp: midTs, pm1: null, pm25: null, pm4: null, pm10: null, _gap: true });
+                withGaps.push({ time: '', timestamp: midTs, pm1: null, pm25: null, outdoor_pm25: null, pm10: null, _gap: true });
             }
         }
     }
@@ -575,9 +586,9 @@ function renderChartData(data) {
         x: d.timestamp || new Date(d.time).getTime(),
         y: d._gap ? null : (d.pm25 || 0)
     }));
-    chart.data.datasets[DS_INDEX.pm4].data = filtered.map(d => ({
+    chart.data.datasets[DS_INDEX.outdoor].data = filtered.map(d => ({
         x: d.timestamp || new Date(d.time).getTime(),
-        y: d._gap ? null : (d.pm4 || 0)
+        y: d._gap ? null : (d.outdoor_pm25 || 0)
     }));
     chart.data.datasets[DS_INDEX.pm10].data = filtered.map(d => ({
         x: d.timestamp || new Date(d.time).getTime(),
@@ -617,7 +628,7 @@ function renderTable(data) {
             <td>${d.time || '--'}</td>
             <td>${(d.pm1 || 0).toFixed(1)}</td>
             <td>${(d.pm25 || 0).toFixed(1)}</td>
-            <td>${(d.pm4 || 0).toFixed(1)}</td>
+            <td>${(d.outdoor_pm25 || 0).toFixed(1)}</td>
             <td>${(d.pm10 || 0).toFixed(1)}</td>
             <td><span class="status-badge" style="background:${q25.color}20;color:${q25.color};">${q25.label}</span></td>
             <td>
@@ -1104,7 +1115,7 @@ function startRelativeTimeUpdater() {
 
 // ─── Demo Data ───
 function showDemoData() {
-    updateCurrentDisplay({ pm1: 8.2, pm25: 12.4, pm4: 14.7, pm10: 18.3, time: new Date().toLocaleString('ko-KR') });
+    updateCurrentDisplay({ pm1: 8.2, pm25: 12.4, pm10: 18.3, time: new Date().toLocaleString('ko-KR') });
     allData = [];
     for (let i = 29; i >= 0; i--) {
         const t = new Date(Date.now() - i * 60000);
@@ -1113,7 +1124,7 @@ function showDemoData() {
             timestamp: t.getTime(),
             pm1: 5 + Math.random() * 15,
             pm25: 10 + Math.random() * 20,
-            pm4: 12 + Math.random() * 22,
+            outdoor_pm25: 12 + Math.random() * 22,
             pm10: 15 + Math.random() * 25,
         });
     }
