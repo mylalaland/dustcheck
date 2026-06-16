@@ -1677,7 +1677,7 @@ async function fetchAirkoreaData() {
     var now = Date.now();
     if (_outdoorCache.station === station && now - _outdoorCache.fetchedAt < AIRKOREA_CACHE_TTL && _outdoorCache.pm25 !== null) return;
     try {
-        var url = 'https://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getMsrstnAcctoRltmMesureDnsty?stationName=' + encodeURIComponent(station) + '&dataTerm=daily&pageNo=1&numOfRows=1&returnType=json&serviceKey=' + AIRKOREA_API_KEY;
+        var url = 'https://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getMsrstnAcctoRltmMesureDnsty?stationName=' + encodeURIComponent(station) + '&dataTerm=daily&pageNo=1&numOfRows=1&returnType=json&ver=1.0&serviceKey=' + AIRKOREA_API_KEY;
         var res = await fetch(url);
         var json = await res.json();
         if (json.response && json.response.body && json.response.body.items) {
