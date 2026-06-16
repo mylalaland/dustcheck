@@ -19,7 +19,7 @@ let _outdoorCache = { pm25: null, pm10: null, station: '', time: '', fetchedAt: 
 const AIRKOREA_CACHE_TTL = 3600000; // 1시간
 
 // Dataset visibility — all 4 active by default
-let datasetVisible = { pm1: true, pm25: true, outdoor: true, pm10: true };
+let datasetVisible = { pm1: true, pm25: true, outdoor: true, pm10: true, outdoor_pm10: true };
 
 // Chart display settings
 let chartSettings = {
@@ -32,7 +32,7 @@ let prevGrade = { pm25: null, pm10: null };
 let notifSettings = {};
 
 // Dataset index mapping
-const DS_INDEX = { pm1: 0, pm25: 1, outdoor: 2, pm10: 3 };
+const DS_INDEX = { pm1: 0, pm25: 1, outdoor: 2, pm10: 3, outdoor_pm10: 4 };
 
 // Memo state
 let memos = [];
@@ -597,6 +597,10 @@ function renderChartData(data) {
     chart.data.datasets[DS_INDEX.pm10].data = filtered.map(d => ({
         x: d.timestamp || new Date(d.time).getTime(),
         y: d._gap ? null : (d.pm10 || 0)
+    }));
+    chart.data.datasets[DS_INDEX.outdoor_pm10].data = filtered.map(d => ({
+        x: d.timestamp || new Date(d.time).getTime(),
+        y: d._gap ? null : (d.outdoor_pm10 || 0)
     }));
     chart.update('none');
 
@@ -1667,7 +1671,7 @@ function deleteMemo(id) {
     }
 }
 
-// --- AirKorea Outdoor Data ---
+// ─── 에어코리아 지역 미세먼지 ───
 function getStation() {
     return localStorage.getItem('dustcheck-station') || AIRKOREA_DEFAULT_STATION;
 }
@@ -1694,6 +1698,7 @@ async function fetchAirkoreaData() {
 }
 
 function updateOutdoorCards() {
+    var stName = _outdoorCache.station || getStation();
     if (_outdoorCache.pm25 !== null) {
         animateValue('outdoor-value', _outdoorCache.pm25);
         var qOut = getAirQuality('outdoor', _outdoorCache.pm25);
@@ -1702,40 +1707,88 @@ function updateOutdoorCards() {
         if (el) { el.textContent = qOut.label; el.style.color = qOut.color; }
         updateGauge('outdoor', _outdoorCache.pm25, [15, 35, 75, 150]);
     }
+    if (_outdoorCache.pm10 !== null) {
+        animateValue('outdoor-pm10-value', _outdoorCache.pm10);
+        var q10 = getAirQuality('outdoor_pm10', _outdoorCache.pm10);
+        styleCard('outdoor-pm10-card', q10);
+        var el10 = document.getElementById('outdoor-pm10-grade');
+        if (el10) { el10.textContent = q10.label; el10.style.color = q10.color; }
+    }
     var stEl = document.getElementById('outdoor-station');
-    if (stEl) stEl.textContent = (_outdoorCache.station || getStation());
+    if (stEl) stEl.textContent = stName;
+    var stEl2 = document.getElementById('outdoor-pm10-station');
+    if (stEl2) stEl2.textContent = stName;
+    var csn = document.getElementById('current-station-name');
+    if (csn) csn.textContent = stName;
 }
 
 function initOutdoorCard() {
-    var card = document.getElementById('outdoor-card');
     var modal = document.getElementById('outdoor-modal');
     var closeBtn = document.getElementById('outdoor-modal-close');
-    if (!card || !modal) return;
-    card.addEventListener('click', function() {
-        document.getElementById('outdoor-modal-station').textContent = (_outdoorCache.station || getStation()) + ' measurement station';
+    if (!modal) return;
+    function openModal() {
+        document.getElementById('outdoor-modal-station').textContent = (_outdoorCache.station || getStation()) + ' 측정소';
         document.getElementById('outdoor-detail-pm25').textContent = _outdoorCache.pm25 !== null ? _outdoorCache.pm25.toFixed(0) : '--';
         document.getElementById('outdoor-detail-pm10').textContent = _outdoorCache.pm10 !== null ? _outdoorCache.pm10.toFixed(0) : '--';
-        document.getElementById('outdoor-detail-time').textContent = _outdoorCache.time ? _outdoorCache.time : '';
+        document.getElementById('outdoor-detail-time').textContent = _outdoorCache.time ? '측정: ' + _outdoorCache.time : '';
         if (_outdoorCache.pm25 !== null) { var q = getAirQuality('outdoor', _outdoorCache.pm25); document.getElementById('outdoor-detail-pm25').style.color = q.color; }
         if (_outdoorCache.pm10 !== null) { var q = getAirQuality('pm10', _outdoorCache.pm10); document.getElementById('outdoor-detail-pm10').style.color = q.color; }
         modal.style.display = 'flex';
-    });
+    }
+    var card1 = document.getElementById('outdoor-card');
+    var card2 = document.getElementById('outdoor-pm10-card');
+    if (card1) card1.addEventListener('click', openModal);
+    if (card2) card2.addEventListener('click', openModal);
     if (closeBtn) closeBtn.addEventListener('click', function() { modal.style.display = 'none'; });
     modal.addEventListener('click', function(e) { if (e.target === modal) modal.style.display = 'none'; });
 }
 
 function initStationSettings() {
     var input = document.getElementById('settings-station');
-    var saveBtn = document.getElementById('btn-save-station');
+    var searchBtn = document.getElementById('btn-search-station');
+    var resultsDiv = document.getElementById('station-search-results');
     var msg = document.getElementById('station-save-msg');
-    if (!input || !saveBtn) return;
-    input.value = getStation();
-    saveBtn.addEventListener('click', function() {
-        var val = input.value.trim();
-        if (!val) return;
-        localStorage.setItem('dustcheck-station', val);
-        _outdoorCache.fetchedAt = 0;
-        fetchAirkoreaData();
-        if (msg) { msg.style.display = 'block'; setTimeout(function() { msg.style.display = 'none'; }, 3000); }
+    var csn = document.getElementById('current-station-name');
+    if (!input || !searchBtn) return;
+    if (csn) csn.textContent = getStation();
+    input.addEventListener('keydown', function(e) { if (e.key === 'Enter') searchBtn.click(); });
+    searchBtn.addEventListener('click', async function() {
+        var query = input.value.trim();
+        if (!query) return;
+        searchBtn.textContent = '검색중...';
+        searchBtn.disabled = true;
+        resultsDiv.innerHTML = '';
+        try {
+            var url = 'https://apis.data.go.kr/B552584/MsrstnInfoInqireSvc/getMsrstnList?addr=' + encodeURIComponent(query) + '&returnType=json&numOfRows=10&pageNo=1&serviceKey=' + AIRKOREA_API_KEY;
+            var res = await fetch(url);
+            var json = await res.json();
+            var items = (json.response && json.response.body && json.response.body.items) ? json.response.body.items : [];
+            if (items.length === 0) {
+                resultsDiv.innerHTML = '<p style="font-size:0.8rem;color:var(--text-secondary);padding:8px;">😔 "' + query + '" 근처에 측정소를 찾지 못했습니다.</p>';
+            } else {
+                resultsDiv.innerHTML = items.map(function(it) {
+                    return '<button class="station-result-btn" data-name="' + it.stationName + '" style="display:block;width:100%;text-align:left;padding:10px 12px;margin-bottom:4px;border:1px solid var(--border-card);border-radius:var(--radius-sm);background:var(--bg-card);cursor:pointer;font-size:0.8rem;color:var(--text-primary);transition:all 0.2s;">' +
+                        '<strong>' + it.stationName + '</strong> <span style="color:var(--text-secondary);font-size:0.7rem;">' + (it.addr || '') + '</span></button>';
+                }).join('');
+                resultsDiv.querySelectorAll('.station-result-btn').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        var name = this.getAttribute('data-name');
+                        localStorage.setItem('dustcheck-station', name);
+                        if (csn) csn.textContent = name;
+                        _outdoorCache.fetchedAt = 0;
+                        fetchAirkoreaData();
+                        resultsDiv.innerHTML = '';
+                        input.value = '';
+                        if (msg) { msg.textContent = '✅ ' + name + ' 측정소로 설정되었습니다.'; msg.style.display = 'block'; setTimeout(function() { msg.style.display = 'none'; }, 4000); }
+                    });
+                    btn.addEventListener('mouseenter', function() { this.style.borderColor = '#6366f1'; this.style.background = 'rgba(99,102,241,0.05)'; });
+                    btn.addEventListener('mouseleave', function() { this.style.borderColor = ''; this.style.background = ''; });
+                });
+            }
+        } catch (e) {
+            resultsDiv.innerHTML = '<p style="font-size:0.8rem;color:#ef4444;padding:8px;">검색 중 오류가 발생했습니다.</p>';
+        }
+        searchBtn.textContent = '검색';
+        searchBtn.disabled = false;
     });
 }

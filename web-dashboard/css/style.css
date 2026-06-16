@@ -431,7 +431,7 @@ body {
 /* ─── PM Cards Grid ─── */
 .pm-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 12px;
     margin-bottom: 20px;
 }
@@ -935,7 +935,7 @@ body {
 @media (max-width: 768px) {
     .container { padding: 14px 12px 28px; }
     .header__title { font-size: 1.3rem; }
-    .pm-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .pm-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
     .pm-card { padding: 18px 12px; }
     .pm-card__value { font-size: 2rem; }
     .info-row { grid-template-columns: repeat(3, 1fr); gap: 8px; }

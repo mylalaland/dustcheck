@@ -34,7 +34,7 @@ from sensor import DustSensor
 from display import DustDisplay
 from firebase_uploader import FirebaseUploader
 from csv_logger import CSVLogger
-from outdoor import fetch_outdoor_pm25
+from outdoor import fetch_outdoor_data
 
 # ─────────────────────────────────────────────
 # 로깅 설정
@@ -172,8 +172,10 @@ class DustCheckMonitor:
                     self.reading_count += 1
                     quality = get_air_quality("pm25", data["pm25"])
 
-                    # 실외 PM2.5 조회 (LCD + Firebase 공용)
-                    outdoor_pm25 = fetch_outdoor_pm25(AIRKOREA_API_KEY, AIRKOREA_STATION) if AIRKOREA_API_KEY else None
+                    # 실외 PM2.5/PM10 조회 (LCD + Firebase 공용)
+                    outdoor = fetch_outdoor_data(AIRKOREA_API_KEY, AIRKOREA_STATION) if AIRKOREA_API_KEY else {"pm25": None, "pm10": None}
+                    outdoor_pm25 = outdoor["pm25"]
+                    outdoor_pm10 = outdoor["pm10"]
 
                     # 콘솔 출력
                     print_dust_data(data, quality)
@@ -186,6 +188,8 @@ class DustCheckMonitor:
                     if now - self.last_firebase_time >= FIREBASE_SEND_INTERVAL:
                         if outdoor_pm25 is not None:
                             data["outdoor_pm25"] = outdoor_pm25
+                        if outdoor_pm10 is not None:
+                            data["outdoor_pm10"] = outdoor_pm10
                         self.uploader.upload(data)
                         self.csv_logger.save(data)
                         self.last_firebase_time = now
