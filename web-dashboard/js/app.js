@@ -268,7 +268,9 @@ function initChart() {
                 const hhmm = parts[1];
                 // Check if this point is at or very close to 00:00
                 if (hhmm && hhmm.startsWith('00:0')) {
-                    const pixelX = scales.x.getPixelForValue(i);
+                    const ts = chartInstance._rawTimestamps;
+                    const tsVal = ts && ts[i] ? ts[i] : i;
+                    const pixelX = scales.x.getPixelForValue(tsVal);
                     if (pixelX < chartArea.left || pixelX > chartArea.right) return;
 
                     // Draw vertical line
@@ -321,7 +323,7 @@ function initChart() {
                 });
 
                 if (closestIdx < 0 || closestDist > 3600000) return; // skip if > 1h away
-                const pixelX = xScale.getPixelForValue(closestIdx);
+                const pixelX = xScale.getPixelForValue(rawTimestamps[closestIdx]);
                 if (pixelX < chartArea.left || pixelX > chartArea.right) return;
 
                 // Draw dashed vertical line
@@ -391,14 +393,29 @@ function initChart() {
                             }
                             return items[0].label; // 기본 label
                         },
-                        label: (c) => `${c.dataset.label}: ${c.parsed.y.toFixed(1)} μg/m³`,
+                        label: (c) => {
+                            if (c.parsed.y === null || c.parsed.y === undefined) return null;
+                            return `${c.dataset.label}: ${c.parsed.y.toFixed(1)} μg/m³`;
+                        },
                     },
                 },
             },
             scales: {
                 x: {
+                    type: 'time',
+                    time: {
+                        unit: 'hour',
+                        displayFormats: {
+                            minute: 'HH:mm',
+                            hour: 'HH:mm',
+                            day: 'MM/dd',
+                            week: 'MM/dd',
+                            month: 'yy/MM',
+                        },
+                        tooltipFormat: 'yyyy-MM-dd HH:mm',
+                    },
                     grid: { color: 'rgba(0,0,0,0.04)', drawBorder: false },
-                    ticks: { color: '#9ca0b4', font: { family: 'Inter', size: 11 }, maxRotation: 0, maxTicksLimit: 7 },
+                    ticks: { color: '#9ca0b4', font: { family: 'Inter', size: 11 }, maxRotation: 0, maxTicksLimit: 8, autoSkip: true },
                 },
                 y: {
                     grid: { color: 'rgba(0,0,0,0.04)', drawBorder: false },
@@ -516,30 +533,42 @@ function renderChartData(data) {
             const ts1 = filtered[i].timestamp || new Date(filtered[i].time).getTime();
             const ts2 = filtered[i + 1].timestamp || new Date(filtered[i + 1].time).getTime();
             if (ts2 - ts1 > gapThreshold) {
-                withGaps.push({ time: '', timestamp: null, pm1: null, pm25: null, pm4: null, pm10: null, _gap: true });
+                // Insert null at midpoint so gap is proportional
+                const midTs = Math.round((ts1 + ts2) / 2);
+                withGaps.push({ time: '', timestamp: midTs, pm1: null, pm25: null, pm4: null, pm10: null, _gap: true });
             }
         }
     }
     filtered = withGaps;
 
-    chart.data.labels = filtered.map(d => {
-        if (!d.time) return '';
-        const parts = d.time.split(' ');
-        if (currentTab === '1y') return parts[0] ? parts[0].slice(2) : ''; // YY-MM-DD
-        if (currentTab === '30d' || currentTab === '7d') return parts[0] ? parts[0].slice(5) : ''; // MM-DD
-        return parts[1] ? parts[1].slice(0, 5) : ''; // HH:MM
-    });
+    // Time scale unit based on current tab
+    const timeUnits = { 'realtime': 'minute', '24h': 'hour', '7d': 'day', '30d': 'day', '1y': 'month' };
+    chart.options.scales.x.time.unit = timeUnits[currentTab] || 'hour';
 
-    // Store raw timestamps for memo plugin
+    // Clear labels (time scale uses data x values)
+    chart.data.labels = [];
+
+    // Store raw timestamps and time strings for plugins
     chart._rawTimestamps = filtered.map(d => d.timestamp || 0);
-    // Store raw time strings for tooltip + midnight plugin
     chart._rawTimeStrings = filtered.map(d => d.time || '');
 
-    // Map all 4 datasets (null for gaps to break the line)
-    chart.data.datasets[DS_INDEX.pm1].data = filtered.map(d => d._gap ? null : (d.pm1 || 0));
-    chart.data.datasets[DS_INDEX.pm25].data = filtered.map(d => d._gap ? null : (d.pm25 || 0));
-    chart.data.datasets[DS_INDEX.pm4].data = filtered.map(d => d._gap ? null : (d.pm4 || 0));
-    chart.data.datasets[DS_INDEX.pm10].data = filtered.map(d => d._gap ? null : (d.pm10 || 0));
+    // Use {x: timestamp, y: value} format for time scale
+    chart.data.datasets[DS_INDEX.pm1].data = filtered.map(d => ({
+        x: d.timestamp || new Date(d.time).getTime(),
+        y: d._gap ? null : (d.pm1 || 0)
+    }));
+    chart.data.datasets[DS_INDEX.pm25].data = filtered.map(d => ({
+        x: d.timestamp || new Date(d.time).getTime(),
+        y: d._gap ? null : (d.pm25 || 0)
+    }));
+    chart.data.datasets[DS_INDEX.pm4].data = filtered.map(d => ({
+        x: d.timestamp || new Date(d.time).getTime(),
+        y: d._gap ? null : (d.pm4 || 0)
+    }));
+    chart.data.datasets[DS_INDEX.pm10].data = filtered.map(d => ({
+        x: d.timestamp || new Date(d.time).getTime(),
+        y: d._gap ? null : (d.pm10 || 0)
+    }));
     chart.update('none');
 
     // Update table if in table view (exclude gap entries)
