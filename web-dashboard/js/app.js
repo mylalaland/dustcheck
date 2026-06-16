@@ -592,7 +592,7 @@ function renderChartData(data) {
     }));
     chart.data.datasets[DS_INDEX.outdoor].data = filtered.map(d => ({
         x: d.timestamp || new Date(d.time).getTime(),
-        y: d._gap ? null : (d.outdoor_pm25 || 0)
+        y: d._gap ? null : (d.outdoor_pm25 != null ? d.outdoor_pm25 : null)
     }));
     chart.data.datasets[DS_INDEX.pm10].data = filtered.map(d => ({
         x: d.timestamp || new Date(d.time).getTime(),
@@ -600,7 +600,7 @@ function renderChartData(data) {
     }));
     chart.data.datasets[DS_INDEX.outdoor_pm10].data = filtered.map(d => ({
         x: d.timestamp || new Date(d.time).getTime(),
-        y: d._gap ? null : (d.outdoor_pm10 || 0)
+        y: d._gap ? null : (d.outdoor_pm10 != null ? d.outdoor_pm10 : null)
     }));
     chart.update('none');
 
@@ -729,8 +729,20 @@ function updateStats() {
     const todayData = allData.filter(d => d.time && d.time.startsWith(today));
     const dataset = todayData.length > 0 ? todayData : allData.slice(-60);
 
-    const key = currentStatType; // 'pm1', 'pm25', 'pm4', or 'pm10'
-    const values = dataset.map(d => d[key] || 0);
+    const key = currentStatType;
+    // Firebase 필드명 매핑
+    const fieldMap = { outdoor: 'outdoor_pm25', outdoor_pm10: 'outdoor_pm10' };
+    const field = fieldMap[key] || key;
+    const values = dataset.map(d => d[field]).filter(v => v != null && v !== undefined);
+
+    if (values.length === 0) {
+        const el = (id) => document.getElementById(id);
+        if (el('stat-max')) el('stat-max').textContent = '--';
+        if (el('stat-min')) el('stat-min').textContent = '--';
+        if (el('stat-avg')) el('stat-avg').textContent = '--';
+        return;
+    }
+
     const max = Math.max(...values);
     const min = Math.min(...values);
     const avg = values.reduce((a, b) => a + b, 0) / values.length;
