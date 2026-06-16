@@ -7,11 +7,12 @@ Wants=network-online.target
 Type=simple
 User=pi
 WorkingDirectory=/home/pi/dustcheck
-ExecStart=/usr/bin/python3 -u monitor.py
+ExecStart=/home/pi/dustcheck/dust_env/bin/python -u monitor.py
 Restart=always
 RestartSec=10
 StandardOutput=append:/home/pi/dustcheck/monitor.log
 StandardError=append:/home/pi/dustcheck/monitor.log
+Environment=PYTHONUNBUFFERED=1
 
 [Install]
 WantedBy=multi-user.target

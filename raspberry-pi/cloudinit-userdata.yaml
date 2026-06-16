@@ -1,0 +1,39 @@
+#cloud-config
+manage_resolv_conf: false
+hostname: pi
+manage_etc_hosts: true
+packages:
+- avahi-daemon
+- i2c-tools
+- python3-pip
+- python3-venv
+- python3-smbus
+- git
+apt:
+  preserve_sources_list: true
+  conf: |
+    Acquire {
+      Check-Date "false";
+    };
+timezone: Asia/Seoul
+keyboard:
+  model: pc105
+  layout: "kr"
+users:
+- name: pi
+  groups: users,adm,dialout,audio,netdev,video,plugdev,cdrom,games,input,gpio,spi,i2c,render,sudo
+  shell: /bin/bash
+  lock_passwd: false
+  passwd: "$y$jB5$cRaJ7laJ1JJFt.pQWBaM9/$N6U0lfvsuRPcZR2aQmYUjMnYv0I3NKT0kCJ3GSMUwOA"
+ssh_pwauth: true
+rpi:
+  interfaces:
+    i2c: true
+    serial: true
+runcmd:
+  - [ rfkill, unblock, wifi ]
+  - [ sh, -c, "for f in /var/lib/systemd/rfkill/*:wlan; do echo 0 > \"$f\"; done" ]
+  - [ modprobe, i2c-dev ]
+  - [ sh, -c, "grep -q i2c-dev /etc/modules || echo i2c-dev >> /etc/modules" ]
+  - [ chmod, +x, /boot/firmware/dustcheck-files/firstboot_setup.sh ]
+  - [ /boot/firmware/dustcheck-files/firstboot_setup.sh ]

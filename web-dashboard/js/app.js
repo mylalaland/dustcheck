@@ -17,6 +17,12 @@ const CACHE_TTL = { '7d': 300000, '30d': 300000, '1y': 600000 };
 // Dataset visibility — all 4 active by default
 let datasetVisible = { pm1: true, pm25: true, pm4: true, pm10: true };
 
+// Chart display settings
+let chartSettings = {
+    showTimeInTooltip: localStorage.getItem('dustcheck-tooltip-time') !== 'false',
+    showMidnightLines: localStorage.getItem('dustcheck-midnight-lines') !== 'false',
+};
+
 // Notification state
 let prevGrade = { pm25: null, pm10: null };
 let notifSettings = {};
@@ -238,6 +244,54 @@ function initChart() {
         };
     });
 
+    // ─── Midnight Lines Plugin ───
+    const midnightPlugin = {
+        id: 'midnightLines',
+        afterDraw(chartInstance) {
+            if (!chartSettings.showMidnightLines) return;
+            if (currentTab === 'realtime' || currentTab === '24h') return;
+            const { ctx: c, chartArea, scales } = chartInstance;
+            if (!chartArea || !scales.x) return;
+            const rawTimes = chartInstance._rawTimeStrings;
+            if (!rawTimes || !rawTimes.length) return;
+
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            const lineColor = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)';
+            const textColor = isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.3)';
+
+            c.save();
+            rawTimes.forEach((timeStr, i) => {
+                if (!timeStr) return;
+                const parts = timeStr.split(' ');
+                if (parts.length < 2) return;
+                const hhmm = parts[1];
+                // Check if this point is at or very close to 00:00
+                if (hhmm && hhmm.startsWith('00:0')) {
+                    const pixelX = scales.x.getPixelForValue(i);
+                    if (pixelX < chartArea.left || pixelX > chartArea.right) return;
+
+                    // Draw vertical line
+                    c.beginPath();
+                    c.setLineDash([6, 3]);
+                    c.strokeStyle = lineColor;
+                    c.lineWidth = 1;
+                    c.moveTo(pixelX, chartArea.top);
+                    c.lineTo(pixelX, chartArea.bottom);
+                    c.stroke();
+                    c.setLineDash([]);
+
+                    // Draw date label at top
+                    const dateStr = parts[0].slice(5); // MM-DD
+                    c.fillStyle = textColor;
+                    c.font = '10px Inter, sans-serif';
+                    c.textAlign = 'center';
+                    c.fillText(dateStr, pixelX, chartArea.top - 4);
+                }
+            });
+            c.restore();
+        }
+    };
+
     // ─── Memo Chart Plugin ───
     const memoPlugin = {
         id: 'memoMarkers',
@@ -311,7 +365,7 @@ function initChart() {
     chart = new Chart(ctx.getContext('2d'), {
         type: 'line',
         data: { labels: [], datasets },
-        plugins: [memoPlugin],
+        plugins: [midnightPlugin, memoPlugin],
         options: {
             responsive: true, maintainAspectRatio: false,
             interaction: { mode: 'index', intersect: false },
@@ -326,7 +380,18 @@ function initChart() {
                     cornerRadius: 8, padding: 10,
                     titleFont: { family: 'Inter', weight: '600' },
                     bodyFont: { family: 'Inter' },
-                    callbacks: { label: (c) => `${c.dataset.label}: ${c.parsed.y.toFixed(1)} μg/m³` },
+                    callbacks: {
+                        title: (items) => {
+                            if (!items.length) return '';
+                            const idx = items[0].dataIndex;
+                            const rawTimes = chart._rawTimeStrings;
+                            if (chartSettings.showTimeInTooltip && rawTimes && rawTimes[idx]) {
+                                return rawTimes[idx]; // 전체 날짜+시간 표시
+                            }
+                            return items[0].label; // 기본 label
+                        },
+                        label: (c) => `${c.dataset.label}: ${c.parsed.y.toFixed(1)} μg/m³`,
+                    },
                 },
             },
             scales: {
@@ -450,6 +515,8 @@ function renderChartData(data) {
 
     // Store raw timestamps for memo plugin
     chart._rawTimestamps = filtered.map(d => d.timestamp || new Date(d.time).getTime());
+    // Store raw time strings for tooltip + midnight plugin
+    chart._rawTimeStrings = filtered.map(d => d.time || '');
 
     // Map all 4 datasets
     chart.data.datasets[DS_INDEX.pm1].data = filtered.map(d => d.pm1 || 0);
@@ -708,6 +775,25 @@ function initSettingsModal() {
             updateThemeBtnText();
         });
         updateThemeBtnText();
+    }
+
+    // Chart settings (tooltip time, midnight lines)
+    const cbTooltipTime = document.getElementById('settings-tooltip-time');
+    const cbMidnightLines = document.getElementById('settings-midnight-lines');
+    if (cbTooltipTime) {
+        cbTooltipTime.checked = chartSettings.showTimeInTooltip;
+        cbTooltipTime.addEventListener('change', () => {
+            chartSettings.showTimeInTooltip = cbTooltipTime.checked;
+            localStorage.setItem('dustcheck-tooltip-time', cbTooltipTime.checked ? 'true' : 'false');
+        });
+    }
+    if (cbMidnightLines) {
+        cbMidnightLines.checked = chartSettings.showMidnightLines;
+        cbMidnightLines.addEventListener('change', () => {
+            chartSettings.showMidnightLines = cbMidnightLines.checked;
+            localStorage.setItem('dustcheck-midnight-lines', cbMidnightLines.checked ? 'true' : 'false');
+            if (chart) chart.update('none');
+        });
     }
 
     // Notif test
