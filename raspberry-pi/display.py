@@ -70,10 +70,10 @@ class DustDisplay:
             else:
                 out_str = "  --"
 
-            # 1줄: 세 수치 (16자)
-            line1 = f"{pm1:4.1f} {pm25:5.1f} {out_str}"
-            # 2줄: 라벨 (16자)
-            line2 = " IN1  IN25   OUT"
+            # 1줄: 실내 PM1.0 · PM2.5
+            # 2줄: 실외 PM2.5
+            line1 = f"  {pm1:5.1f}  {pm25:5.1f} "
+            line2 = f"        {out_str}        "
 
             self.lcd.cursor_pos = (0, 0)
             self.lcd.write_string(line1[:self.cols])
