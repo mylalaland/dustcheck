@@ -37,6 +37,12 @@ CSV_SAVE_INTERVAL = 60  # CSV 저장 주기 (초) - Firebase 전송과 동일
 # WHO 및 한국 환경부 기준 참고
 # ─────────────────────────────────────────────
 AIR_QUALITY_LEVELS = {
+    "pm1": [
+        {"label": "좋음",     "label_en": "Good",      "max": 10,  "emoji": "😊", "color": "#00d4aa"},
+        {"label": "보통",     "label_en": "Normal",    "max": 25,  "emoji": "🙂", "color": "#ffc107"},
+        {"label": "나쁨",     "label_en": "Bad",       "max": 50,  "emoji": "😷", "color": "#ff6b35"},
+        {"label": "매우나쁨", "label_en": "Very Bad",  "max": 9999, "emoji": "🚨", "color": "#ff2d55"},
+    ],
     "pm25": [
         {"label": "좋음",     "label_en": "Good",      "max": 15,  "emoji": "😊", "color": "#00d4aa"},
         {"label": "보통",     "label_en": "Normal",    "max": 35,  "emoji": "🙂", "color": "#ffc107"},

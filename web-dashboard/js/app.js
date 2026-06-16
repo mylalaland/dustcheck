@@ -241,6 +241,7 @@ function initChart() {
             fill: false,
             tension: 0.35,
             hidden: !datasetVisible[pm.key],
+            spanGaps: false,
         };
     });
 
@@ -505,6 +506,22 @@ function renderChartData(data) {
         filtered = filtered.filter((_, i) => i % step === 0);
     }
 
+    // Gap detection — insert null entries where time gaps exceed threshold
+    const gapThresholds = { 'realtime': 180000, '24h': 300000, '7d': 1800000, '30d': 7200000, '1y': 86400000 };
+    const gapThreshold = gapThresholds[currentTab] || 300000;
+    const withGaps = [];
+    for (let i = 0; i < filtered.length; i++) {
+        withGaps.push(filtered[i]);
+        if (i < filtered.length - 1) {
+            const ts1 = filtered[i].timestamp || new Date(filtered[i].time).getTime();
+            const ts2 = filtered[i + 1].timestamp || new Date(filtered[i + 1].time).getTime();
+            if (ts2 - ts1 > gapThreshold) {
+                withGaps.push({ time: '', timestamp: null, pm1: null, pm25: null, pm4: null, pm10: null, _gap: true });
+            }
+        }
+    }
+    filtered = withGaps;
+
     chart.data.labels = filtered.map(d => {
         if (!d.time) return '';
         const parts = d.time.split(' ');
@@ -514,19 +531,19 @@ function renderChartData(data) {
     });
 
     // Store raw timestamps for memo plugin
-    chart._rawTimestamps = filtered.map(d => d.timestamp || new Date(d.time).getTime());
+    chart._rawTimestamps = filtered.map(d => d.timestamp || 0);
     // Store raw time strings for tooltip + midnight plugin
     chart._rawTimeStrings = filtered.map(d => d.time || '');
 
-    // Map all 4 datasets
-    chart.data.datasets[DS_INDEX.pm1].data = filtered.map(d => d.pm1 || 0);
-    chart.data.datasets[DS_INDEX.pm25].data = filtered.map(d => d.pm25 || 0);
-    chart.data.datasets[DS_INDEX.pm4].data = filtered.map(d => d.pm4 || 0);
-    chart.data.datasets[DS_INDEX.pm10].data = filtered.map(d => d.pm10 || 0);
+    // Map all 4 datasets (null for gaps to break the line)
+    chart.data.datasets[DS_INDEX.pm1].data = filtered.map(d => d._gap ? null : (d.pm1 || 0));
+    chart.data.datasets[DS_INDEX.pm25].data = filtered.map(d => d._gap ? null : (d.pm25 || 0));
+    chart.data.datasets[DS_INDEX.pm4].data = filtered.map(d => d._gap ? null : (d.pm4 || 0));
+    chart.data.datasets[DS_INDEX.pm10].data = filtered.map(d => d._gap ? null : (d.pm10 || 0));
     chart.update('none');
 
-    // Update table if in table view
-    if (viewMode === 'table') renderTable(filtered);
+    // Update table if in table view (exclude gap entries)
+    if (viewMode === 'table') renderTable(data);
 }
 
 function showChartLoading(show) {
