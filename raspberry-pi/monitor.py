@@ -172,16 +172,20 @@ class DustCheckMonitor:
                     self.reading_count += 1
                     quality = get_air_quality("pm25", data["pm25"])
 
+                    # 실외 PM2.5 조회 (LCD + Firebase 공용)
+                    outdoor_pm25 = fetch_outdoor_pm25(AIRKOREA_API_KEY, AIRKOREA_STATION) if AIRKOREA_API_KEY else None
+
                     # 콘솔 출력
                     print_dust_data(data, quality)
 
-                    # LCD 표시 (실외 PM2.5 포함)
-                    outdoor_pm25 = fetch_outdoor_pm25(AIRKOREA_API_KEY, AIRKOREA_STATION) if AIRKOREA_API_KEY else None
+                    # LCD 표시
                     self.display.show_dust_data(data, outdoor_pm25=outdoor_pm25)
 
-                    # Firebase 전송 (주기 확인)
+                    # Firebase 전송 (주기 확인) - 실외 데이터 포함
                     now = time.time()
                     if now - self.last_firebase_time >= FIREBASE_SEND_INTERVAL:
+                        if outdoor_pm25 is not None:
+                            data["outdoor_pm25"] = outdoor_pm25
                         self.uploader.upload(data)
                         self.csv_logger.save(data)
                         self.last_firebase_time = now

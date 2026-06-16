@@ -31,7 +31,7 @@ FIREBASE_SEND_INTERVAL = 60  # Firebase 전송 주기 (초)
 # ─────────────────────────────────────────────
 # API 키 발급: https://www.data.go.kr/data/15073861/openapi.do
 # 무료 회원가입 후 즉시 발급 가능합니다.
-AIRKOREA_API_KEY = ""  # ★ data.go.kr에서 발급받은 인코딩된 API 키
+AIRKOREA_API_KEY = "135e167270bd95f208df848fc3f47057315fd3ec1b70bfe6d30c6aac091335cf"  # ★ data.go.kr에서 발급받은 인코딩된 API 키
 AIRKOREA_STATION = "물금읍"  # ★ 양산시 측정소 (물금읍, 북부동, 웅상읍 등)
 
 # ─────────────────────────────────────────────

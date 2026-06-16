@@ -13,9 +13,9 @@ import json
 
 logger = logging.getLogger(__name__)
 
-# 캐시: 30분마다 갱신
+# 캐시: 에어코리아 데이터는 매시 정각에 갱신되므로 1시간 캐시
 _cache = {"pm25": None, "timestamp": 0, "station": ""}
-CACHE_TTL = 1800  # 30분 (초)
+CACHE_TTL = 3600  # 1시간 (초) — 에어코리아 갱신 주기와 동일
 
 
 def fetch_outdoor_pm25(api_key, station_name="물금읍"):

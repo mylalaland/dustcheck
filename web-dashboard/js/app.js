@@ -389,9 +389,10 @@ function initChart() {
                             const idx = items[0].dataIndex;
                             const rawTimes = chart._rawTimeStrings;
                             if (chartSettings.showTimeInTooltip && rawTimes && rawTimes[idx]) {
-                                return rawTimes[idx]; // 전체 날짜+시간 표시
+                                // 초 단위 제거 (YYYY-MM-DD HH:MM:SS → YYYY-MM-DD HH:MM)
+                                return rawTimes[idx].replace(/:\d{2}$/, '');
                             }
-                            return items[0].label; // 기본 label
+                            return items[0].label;
                         },
                         label: (c) => {
                             if (c.parsed.y === null || c.parsed.y === undefined) return null;
