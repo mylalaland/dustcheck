@@ -101,7 +101,7 @@ FIREBASE_DATABASE_URL = "https://프로젝트명-default-rtdb.firebaseio.com/"
 
 # 에어코리아 설정 (실외 미세먼지 조회)
 AIRKOREA_API_KEY = "data.go.kr에서 발급받은 API 키"
-AIRKOREA_STATION = "물금읍"  # 가까운 측정소명
+AIRKOREA_STATION = "강남"  # 가까운 측정소명
 
 # 측정 설정
 SENSOR_READ_INTERVAL = 10   # 센서 읽기 주기 (초)
@@ -196,4 +196,3 @@ dustcheck/
 ## 📜 라이선스
 
 이 프로젝트는 자유롭게 사용, 수정, 배포할 수 있습니다.  
-참조: [SPS30으로 실내 미세먼지 측정하기 (zariski 블로그)](https://zariski.wordpress.com/2026/03/21/sps30%ec%9c%bc%eb%a1%9c-%ec%8b%a4%eb%82%b4-%eb%af%b8%ec%84%b8%eb%a8%bc%ec%a7%80-%ec%b8%a1%ec%a0%95%ed%95%98%ea%b8%b0/)
