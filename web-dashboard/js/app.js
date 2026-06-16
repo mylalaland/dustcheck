@@ -524,9 +524,22 @@ function renderChartData(data) {
         filtered = filtered.filter((_, i) => i % step === 0);
     }
 
-    // Gap detection — insert null entries where time gaps exceed threshold
-    const gapThresholds = { 'realtime': 180000, '24h': 300000, '7d': 1800000, '30d': 7200000, '1y': 86400000 };
-    const gapThreshold = gapThresholds[currentTab] || 300000;
+    // Gap detection — dynamically determine threshold from actual data intervals
+    // Calculate median interval after sampling, then use 3× median as gap threshold
+    let gapThreshold = 300000; // default 5 min
+    if (filtered.length > 2) {
+        const intervals = [];
+        for (let i = 1; i < filtered.length; i++) {
+            const t1 = filtered[i - 1].timestamp || new Date(filtered[i - 1].time).getTime();
+            const t2 = filtered[i].timestamp || new Date(filtered[i].time).getTime();
+            if (t2 > t1) intervals.push(t2 - t1);
+        }
+        if (intervals.length > 0) {
+            intervals.sort((a, b) => a - b);
+            const median = intervals[Math.floor(intervals.length / 2)];
+            gapThreshold = Math.max(median * 3, 120000); // 최소 2분
+        }
+    }
     const withGaps = [];
     for (let i = 0; i < filtered.length; i++) {
         withGaps.push(filtered[i]);
